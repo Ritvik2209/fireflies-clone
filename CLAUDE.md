@@ -141,6 +141,16 @@ frontend/src/
 - **FTS queries (bonus 4):** split user input into words and double-quote each before `MATCH` (raw input such as `don't` is an FTS5 syntax error); always a bound parameter. Tokenizer `porter unicode61`. Rank with `bm25()` (lower = better). Chat retrieval (bonus 6) drops stopwords and joins the quoted terms with `OR`.
 - **Uploads:** the browser reads the file (`file.text()`), takes the format from the extension, enforces a size cap, and POSTs JSON `{transcript_text, format, source}`.
 - **LLM chat (bonus 6):** `llm/` wraps the SDK behind one function and builds the prompt; the transcript is delimited and treated as data, not instructions. The key never leaves the backend. No key, or an LLM error/timeout → the FTS "Relevant moments" answer (`answered_by = "fallback"`). Question length cap → 422; per-meeting messages-per-minute limit, counted from `chat_messages` → 429.
+- **Phase 2 implementation choices** (details in ARCHITECTURE.md §4.5–4.8 and §6.7):
+  - SQLAlchemy **2.1.4** with the 2.0-style typed API.
+  - Every datetime column uses `UTCDateTime` (`models/types.py`): naive UTC stored, aware UTC read back, naive input rejected.
+  - Allowed values are `Literal` types next to their table (`AvatarColor`, `GeneratedBy`), and they generate the CHECK constraints.
+  - `services/meetings.save_meeting()` is the **single write path** for the create endpoint and the seed script. It takes a storage-independent `MeetingNotes` (from `generate_notes` or from seed JSON), sorts segments, and makes every speaker, named participant and assignee a participant. Callers commit once, then re-read with `get_meeting`.
+  - Removing a participant from a meeting unassigns their action items in it. Assignees must be participants of the meeting (422).
+  - PATCH bodies reject explicit `null` for non-nullable fields (422 "x: can't be null"). The list filters are a Pydantic query model, with timezone-aware dates and an inverted range → 422. Title search escapes `%`/`_`.
+  - Parsers: the first `.txt` line decides timestamped or untimestamped mode; continuation lines join the previous utterance. The generator excludes speakers' names from keywords, needs a person for "will" ("I'll", "we will"), and skips questions and pleasantries.
+  - Tests set `DATABASE_URL` to a temp file in `conftest.py` before importing the app, and don't run the lifespan.
+- **Seed world:** a fictional field-service software company, Kestrel (people and emails in `seed_data.json`; the default user Alex Morgan is Head of Product). Seed dialogue is hand-written; times were computed from word counts (95–100 wpm plus pauses) so meetings run 15–17 min. Bonus phases add their seed data to the same file.
 
 ## Schema summary (full spec and ER diagram: ARCHITECTURE.md §6)
 
@@ -210,6 +220,7 @@ npm run build                        # also type-checks
 ## Known gotchas
 
 - **Dev machine:** port 3000 belongs to Docker (a Grafana container). Never stop it; run the frontend on **3001** (the backend's local CORS default allows 3000 and 3001). Windows PowerShell's `Invoke-WebRequest` to `localhost` is very slow; use `curl` (Git Bash).
+- **Writing files from Python on Windows:** pass `newline="\n"` to `write_text`, or the file gets CRLF line endings (git normalises them, but diffs get noisy).
 - **Visual checks:** take headless screenshots and compare them with `docs/reference/`: `"/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" --headless=new --disable-gpu --hide-scrollbars --user-data-dir=<scratch>/edge-profile --window-size=1440,900 --virtual-time-budget=8000 --screenshot=<file>.png http://localhost:3001/<page>`.
 
 - **New tables or seed data:** `create_all()` creates missing tables on startup but never alters existing ones, and seed data only loads into an empty DB. Locally, delete `backend/app.db`; on Render every deploy starts from a fresh disk. Tell the owner whenever a phase needs this.
@@ -225,7 +236,7 @@ npm run build                        # also type-checks
 **Part 1: Core**
 - [x] **Phase 0: Repo setup and docs (~1 h).** GitHub repo, `.gitignore`, `CLAUDE.md`, `docs/ARCHITECTURE.md`, `INTERVIEW_PREP.md`.
 - [x] **Phase 1: Skeleton + early deploy (~1 h).** FastAPI `/api/health`; Next.js shell (sidebar + top bar); both deployed (Render + Vercel) and talking to each other. UI references: `docs/reference/README.md`.
-- [ ] **Phase 2: Backend core (~3 h).** Core models and relationships, schemas, parsers, summary generator, services, all core routes, seed data, pytest tests. No tags/search/export routes yet.
+- [x] **Phase 2: Backend core (~3 h).** Core models and relationships, schemas, parsers, summary generator, services, all core routes, seed data, pytest tests. No tags/search/export routes yet.
 - [ ] **Phase 3: Library page (~2 h).** List, title search, participant and date filters, sort, loading and empty states.
 - [ ] **Phase 4: Meeting page (~3 h).** Simulated player, two-way transcript sync, transcript search, summary / keywords / chapters / action-items panels.
 - [ ] **Phase 5: CRUD UI + Fireflies experience (~2 h).** Create (upload/paste), edit, delete, action-item management, toasts, placeholder pages, UI pass against the screenshots.

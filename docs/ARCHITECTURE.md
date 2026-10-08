@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status: Phase 0 plan of record.** Written before any code exists, so file, function and field names are the planned ones. The core is designed in full here; the six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
+> **Status: updated after Phase 2.** The backend core (database, parsers, summary generator, services, API, seed data, tests) and the frontend shell are built and deployed; names below match the code. The frontend pages (§5, §8) are still the plan for Phases 3–5. The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
 
 **Contents:** [1. Overview](#1-system-overview) · [2. Stack](#2-tech-stack) · [3. Repository layout](#3-repository-layout) · [4. Backend](#4-backend) · [5. Frontend](#5-frontend) · [6. Database](#6-database) · [7. API](#7-api) · [8. Core data flows](#8-core-data-flows) · [9. Bonus features](#9-bonus-features) · [10. Deployment](#10-deployment) · [11. Assumptions and trade-offs](#11-assumptions-and-trade-offs)
 
@@ -38,7 +38,7 @@ flowchart LR
 | Styling | Tailwind CSS | Utility classes make it quick to match Fireflies' spacing and colours; `dark:` variants give dark mode. |
 | Small UI libraries | `lucide-react` (icons), `sonner` (toasts), `next-themes` (dark mode) | Single-purpose and approved. Everything else, including modals and form controls, is hand-built. |
 | API | FastAPI + Pydantic v2 | Type-hinted request/response models give validation, serialisation and the OpenAPI docs at `/docs` from one definition. Dependency injection supplies the DB session and the current user. |
-| ORM | SQLAlchemy 2.0, sync | Explicit, typed models with relationships and cascades. Sync because SQLite is a local file: async would add complexity without a real I/O benefit. |
+| ORM | SQLAlchemy 2.1 (the 2.0-style typed API), sync | Explicit, typed models with relationships and cascades. Sync because SQLite is a local file: async would add complexity without a real I/O benefit. |
 | Database | SQLite + FTS5 | Zero-ops single file. FTS5 is built into SQLite and gives ranked full-text search without another service. |
 | PDF export (bonus 3) | `fpdf2` | Pure Python with no system libraries, so it installs on Render as-is. |
 | LLM (bonus 6) | One official SDK: `anthropic` or `openai` (the owner chooses at Phase 12) | Called only from `backend/app/llm/`, so switching providers touches one module. |
@@ -77,14 +77,14 @@ flowchart LR
 | `config.py` | Reads settings from environment variables (`DATABASE_URL`, `CORS_ORIGINS`, and the `LLM_*` variables in bonus 6) into a small frozen dataclass, with local defaults. |
 | `database.py` | SQLAlchemy engine, `SessionLocal`, the declarative `Base`, the `get_db()` dependency, the `PRAGMA foreign_keys=ON` listener, and (bonus 4) the FTS5 setup SQL. |
 | `dependencies.py` | `get_current_user()`: returns the default user. The single place where real authentication would plug in. |
-| `errors.py` | Domain exceptions (`NotFoundError`, `ConflictError`, `InvalidInputError`, `RateLimitError`) and the handlers that turn them into JSON error responses. |
-| `models/` | One module per table group. Core: `user.py`, `meeting.py`, `participant.py`, `associations.py` (many-to-many link tables), `transcript.py`, `summary.py` (summary + chapters), `action_item.py`. Bonuses: `tag.py`, `annotations.py` (highlights, comments, soundbites), `chat.py`. `__init__.py` imports them all so `Base.metadata` knows every table before `create_all()` runs. |
-| `schemas/` | Pydantic request/response models per resource, e.g. `MeetingCreate`, `MeetingUpdate`, `MeetingListItem`, `MeetingDetail`, `ActionItemCreate`. |
-| `routers/` | One router per resource. Core: `health`, `meetings`, `action_items`, `participants`. Bonuses: `tags`, `export`, `search`, `annotations`, `chat`. HTTP concerns only. |
-| `services/` | Business logic. Core: `meetings` (list with filters, detail, the create pipeline, update, delete), `participants` (get-or-create by name), `action_items`, `summary_generator` (pure). Bonuses: `tags`, `export`, `search` (FTS5), `annotations`, `chat`. |
+| `errors.py` | Domain exceptions (`NotFoundError` 404, `ConflictError` 409, `InvalidInputError` 422; `RateLimitError` 429 arrives with bonus 6) and the handlers that turn them, and request-validation errors, into JSON error responses. |
+| `models/` | One module per table group. Core: `user.py`, `meeting.py`, `participant.py`, `associations.py` (many-to-many link tables), `transcript.py`, `summary.py` (summary + chapters), `action_item.py`. Bonuses: `tag.py`, `annotations.py` (highlights, comments, soundbites), `chat.py`. `types.py` holds `UTCDateTime` (§6.7). Allowed values live next to their table as `Literal` types (`AvatarColor`, `GeneratedBy`) and generate the CHECK constraints. `__init__.py` imports every model so `Base.metadata` knows all tables before `create_all()` runs. |
+| `schemas/` | Pydantic request/response models per resource: `MeetingCreate`, `MeetingUpdate`, `MeetingFilters` (the list's query parameters), `MeetingListItem`, `MeetingDetail`, `ActionItemCreate/Update/Out`, `ParticipantOut`, … `base.py` has `ORMModel` (`from_attributes=True`), `ErrorResponse` and the error responses shown in `/docs`. |
+| `routers/` | One router per resource. Core: `health`, `meetings`, `action_items`, `participants`. Bonuses: `tags`, `export`, `search`, `annotations`, `chat`. HTTP concerns only; the shared `DbSession` and `CurrentUser` dependency types come from `dependencies.py`. |
+| `services/` | Business logic. Core: `meetings` (list with filters, `get_meeting` for the detail page, `get_owned_meeting` for the bare row, `create_meeting`, `update_meeting`, `delete_meeting`, and `save_meeting`, the one write path shared with the seed script), `participants` (get-or-create by name, colour from the name), `action_items`, `summary_generator` (pure; returns `MeetingNotes`). Bonuses: `tags`, `export`, `search` (FTS5), `annotations`, `chat`. |
 | `llm/` | Bonus 6: `client.py` wraps the chosen provider's SDK behind one function; `prompts.py` builds the grounded prompt. Isolated so the provider is swappable. |
 | `parsers/` | `base.py` (`ParsedSegment`, `TranscriptParseError`, timestamp helpers), `txt_parser.py`, `vtt_parser.py`, `json_parser.py`, and `dispatcher.py` with `parse_transcript(text, format)`. |
-| `seed/` | `seed_data.json` (the default user and six hand-written meetings; bonus phases add tags, highlights, comments and soundbites) and `seed.py` (`seed_if_empty()`). |
+| `seed/` | `seed_data.json` (the default user, the people directory and six hand-written meetings; bonus phases add tags, highlights, comments and soundbites) and `seed.py` (`seed_if_empty()`). See §4.7. |
 
 ### Frontend: `frontend/src/`
 
@@ -176,6 +176,37 @@ Every error response has the same shape, so the frontend can always show `detail
 | Services | `ConflictError`: duplicate tag name, or removing a participant who speaks in the transcript | 409 |
 | Parsers, services | `TranscriptParseError` / `InvalidInputError`, e.g. "Line 4: expected `[HH:MM:SS] Speaker: text`" | 422 |
 | Chat service (bonus 6) | `RateLimitError`: too many questions per minute | 429 |
+
+FastAPI's default validation error puts a list in `detail`. Our handler keeps `detail` a readable string (the first problem, ready for a toast) and lists every field under `errors`, with Pydantic's "Value error, " prefix removed:
+
+```json
+{ "detail": "title: can't be null", "errors": [{ "field": "title", "message": "can't be null" }] }
+```
+
+### 4.6 Parsers and the summary generator
+
+**Parsers** (`parsers/`): each returns `list[ParsedSegment(speaker, start_ms, end_ms, text)]`; errors are `TranscriptParseError` (a 422) naming the line or item.
+
+- **txt:** the first line decides the mode. With timestamps (`[HH:MM:SS]` or `[MM:SS]`), each utterance lasts until the next one starts and the last lasts as long as its words take to say; a `Name: text` line without a timestamp in a timestamped file is an error. Without timestamps, utterances are laid end to end at ~150 words per minute. A line that doesn't start an utterance continues the previous one (wrapped text). A speaker name starts with a letter and is at most 60 characters.
+- **vtt:** requires the `WEBVTT` header; skips NOTE, STYLE and REGION blocks; reads the speaker from `<v Name>` or a `Name:` prefix (otherwise "Unknown speaker"); strips other markup; rejects cues that end before they start.
+- **json:** each item is validated by a small Pydantic model (`speaker`, `start`, `end` in seconds, `text`; `end ≥ start`); errors read like "Item 2: end: Field required".
+
+**Summary generator** (`services/summary_generator.py`): `generate_notes(segments) → MeetingNotes`, a pure function.
+
+- **Overview:** the first three sentences with at least 8 words and 3 content words (not questions).
+- **Keywords:** the 6 most frequent content words. Content words exclude a hand-written stopword list, words shorter than 3 letters, and the speakers' own names, which would otherwise top every meeting.
+- **Action items** (at most 8): sentences with a person committing ("I'll", "we will"), "need to", "let's", "follow up", "action item" or "by Friday / tomorrow / end of day…". Questions are excluded, as are pleasantries with fewer than 2 content words ("Let's get started."). The assignee is the speaker, and `source_start_ms` is the segment's start.
+- **Chapters:** one per 5-minute window, titled from that window's top 3 terms ("Sprint, offline and sync").
+
+### 4.7 Seed data
+
+`seed/seed_data.json` holds the default user (Alex Morgan), a people directory (name, email, avatar colour) and six original meetings at a fictional field-service software company, Kestrel: sprint planning, a sales discovery call, a design review, a 1:1, an investor update and a customer escalation. Each meeting has a duration, its participants, transcript rows `[speaker, "mm:ss", text]` (each line lasts until the next starts), and hand-written notes with chapters and action items whose `at` times point at the line where they were said.
+
+The dialogue was written by hand, and the start times were computed from each line's word count at a measured pace (95–100 words per minute plus a pause between turns), so every meeting lands within the brief's 15–45 minutes (15.8–17.2). `seed_if_empty()` runs at startup, only when there are no users, and stores every meeting through `save_meeting`, the same code path as an upload. Tests check the brief's seed rules and that every chapter and action item lands on the start of a transcript line.
+
+### 4.8 Testing
+
+pytest, 57 tests: parsers, the summary generator, models (the database really enforces CASCADE, RESTRICT and NOCASE), every API route, the seed rules, and the sample files in `backend/samples/`. `tests/conftest.py` points `DATABASE_URL` at a temporary SQLite file *before* the app is imported, so tests run the real code paths and never touch `app.db`. Each test gets freshly created tables. The `TestClient` isn't used as a context manager, so the startup hook (create tables, seed) doesn't run; tests seed explicitly when they need data.
 
 ## 5. Frontend
 
@@ -430,7 +461,7 @@ Tables are created phase by phase, so each phase ships only what it uses:
 - `summaries`: `UNIQUE (meeting_id)`, `CHECK (generated_by IN ('seed', 'rule_based'))`.
 - `chapters`: `CHECK (start_ms >= 0)`, `UNIQUE (meeting_id, position)`.
 - `action_items`: `CHECK (length(text) BETWEEN 1 AND 500)`; `is_completed` defaults to false.
-- `users.email` is `UNIQUE`. `participants.email` is `UNIQUE` but nullable; SQLite allows any number of NULLs in a UNIQUE column. `participants.name` is `COLLATE NOCASE`, so speaker matching is case-insensitive and can still use the index.
+- `users.email` is `UNIQUE`. `participants.email` is `UNIQUE` but nullable; SQLite allows any number of NULLs in a UNIQUE column. `participants.name` is `COLLATE NOCASE`, so speaker matching is case-insensitive and can still use the index. `participants.avatar_color` has `CHECK (avatar_color IN ('indigo', 'green', 'yellow', 'orange', 'pink', 'cyan'))`, built from the same `AvatarColor` type the API uses.
 - Bonus 2: `tags.name` is `UNIQUE` and `COLLATE NOCASE` (so "Sales" and "sales" conflict) with `CHECK (length(name) BETWEEN 1 AND 40)`.
 - Bonus 5: `highlights`: `UNIQUE (segment_id, user_id)`, `CHECK (color IN ('yellow', 'green', 'blue', 'pink'))`. `segment_comments`: `CHECK (length(text) BETWEEN 1 AND 1000)`. `soundbites`: `CHECK (length(title) BETWEEN 1 AND 120)`, `CHECK (start_ms >= 0)`, `CHECK (end_ms > start_ms)`. The service also checks `end_ms <= meeting.duration_ms`: a CHECK constraint can't read another table.
 - Bonus 6: `chat_messages`: `CHECK (role IN ('user', 'assistant'))`, `CHECK (answered_by IN ('llm', 'fallback'))` (NULL for user rows).
@@ -517,7 +548,7 @@ LIMIT 50;
 
 ### 6.7 SQLAlchemy mapping
 
-Illustrative; the final code lands in Phase 2.
+Abridged from `database.py` and `models/meeting.py`:
 
 ```python
 engine = create_engine(settings.database_url, connect_args={"check_same_thread": False})
@@ -544,7 +575,7 @@ class Meeting(Base):
         cascade="all, delete-orphan",
         order_by="TranscriptSegment.position",
     )
-    summary: Mapped[Optional["Summary"]] = relationship(
+    summary: Mapped["Summary | None"] = relationship(
         back_populates="meeting", cascade="all, delete-orphan", uselist=False
     )
     participants: Mapped[list["Participant"]] = relationship(
@@ -555,7 +586,10 @@ class Meeting(Base):
 - **Typed declarative style.** `Mapped[int]` / `Mapped[str | None]` gives the Python type and the column's nullability in one annotation.
 - **`back_populates` on both sides** keeps `meeting.segments` and `segment.meeting` consistent in memory.
 - **ORM cascade and DB cascade together.** `cascade="all, delete-orphan"` acts on objects in the session: `db.delete(meeting)` deletes its children, and `delete-orphan` deletes a child removed from its collection (`meeting.action_items.remove(item)`) instead of setting its NOT NULL foreign key to NULL. `ondelete="CASCADE"` is enforced by SQLite itself and covers deletes that bypass the ORM (raw SQL, bulk `delete()` statements, other tools). Together, the data stays consistent whichever way a delete happens.
-- **`passive_deletes=True` on segment-level children (bonus 5).** Without it, deleting a meeting would make the ORM lazy-load every segment's highlights and comments (two queries per segment) just to delete them. With it, the ORM deletes the segments and lets the database cascade remove their annotations.
+- **`passive_deletes` where the database owns the rule.** On `Participant.segments` it is `"all"`: the ORM never touches a speaker's lines, so the database's RESTRICT is the single authority. On `Participant.action_items` it is `True`: the database's SET NULL unassigns the tasks. Bonus 5 adds it to segment-level children (highlights, comments): without it, deleting a meeting would make the ORM lazy-load every segment's annotations (two queries per segment) just to delete them.
+- **UTC-aware datetimes.** Every datetime column uses `UTCDateTime` (`models/types.py`), a small `TypeDecorator`. It stores naive UTC (SQLite has no time zones), rejects naive input and reads values back as timezone-aware UTC. Pydantic then serialises them with a `Z`, so browsers never mistake UTC for local time.
+- **Two loaders.** `get_meeting` loads everything the meeting page shows; `get_owned_meeting` loads only the row (for deletes and for adding action items). Both filter by `owner_id` and raise `NotFoundError`.
+- **Write pattern.** `save_meeting` adds the whole object graph and calls `flush()` (ids assigned, still uncommitted). The caller commits once, then re-reads through `get_meeting`, so the response is exactly what a later GET returns.
 - **No delete cascade on the many-to-many relationships.** For `secondary=` relationships SQLAlchemy removes only the link rows; participants and tags themselves must survive.
 - **No N+1 queries.** The detail query loads every collection with `selectinload`: one query for the meeting plus one `SELECT … WHERE meeting_id IN (…)` per relationship, 6 in total for the core however long the transcript is. The library list does the same for participants (2 queries for any number of meetings). Bonus data that is per segment (comment counts, highlights) is fetched with one aggregate query each, never one per line. `selectinload` is preferred over `joinedload` for collections because joining several collections in one query multiplies the rows returned.
 - **`create_all()` instead of migrations.** It only creates missing tables and never alters existing ones. That is acceptable for a time-boxed demo whose database is re-created on every Render deploy. Production would use Alembic.
@@ -610,11 +644,13 @@ Base path `/api`. JSON in and out, except export, which returns a file. Every ro
 
 - Resource URLs use plural nouns; the verb comes from the HTTP method; multi-word paths use kebab-case (`action-items`).
 - **Shallow nesting.** Children are created under their parent (`POST /meetings/{id}/action-items`, `POST /segments/{id}/comments`) because they need one, but edited and deleted by their own id (`/action-items/{id}`, `/comments/{id}`). That id is globally unique, so a deeper URL would only add an id to cross-check.
-- **PATCH is a partial update.** Only the fields present in the body change (`model_dump(exclude_unset=True)`), so `{"assignee_id": null}` unassigns an item while leaving `assignee_id` out leaves it unchanged.
+- **PATCH is a partial update.** Only the fields present in the body change (Pydantic's `model_fields_set` says which were sent), so `{"assignee_id": null}` unassigns an item while leaving `assignee_id` out leaves it unchanged. Sending `null` for a field that can't be empty (`title`, `participant_names`, `text`, `is_completed`) is a 422: "title: can't be null".
+- **Strict, validated query parameters.** The list's filters are one Pydantic model (`MeetingFilters`). `date_from`/`date_to` must include a time zone, and an inverted range is a 422. In `q`, `%` and `_` match literally (`contains(..., autoescape=True)`).
 - **PUT for the highlight (bonus 5).** A user has at most one highlight per line, so the highlight is a singular sub-resource of the segment: `PUT` says "make the highlight this colour", whether or not one existed. That is idempotent: repeating it changes nothing.
 - **POST returns 201 with the created resource,** so the UI can render it without another request. **DELETE returns 204** with no body.
 - **Ownership.** Lookups are scoped to the current user. Someone else's meeting returns 404, not 403, so ids don't reveal what exists.
-- **Participants by name.** `participant_names` are matched case-insensitively against the directory, creating new people as needed; this is the same function used for transcript speakers. Speakers always remain participants of their meeting, so a PATCH that removes one is rejected with 409.
+- **Participants by name.** `participant_names` are matched case-insensitively against the directory, creating new people as needed; this is the same function used for transcript speakers. Every speaker, named participant and action-item assignee becomes a participant of the meeting. Speakers always remain participants, so a PATCH that removes one is rejected with 409. Removing anyone else unassigns their action items in that meeting, so no task points at someone who isn't in it.
+- **Action-item assignees** must be participants of the item's meeting (422 otherwise).
 - **Export is a GET:** safe and repeatable, so the frontend can use a plain link. The response sets `Content-Disposition: attachment; filename="…"`.
 - **CORS.** `CORSMiddleware` allows only the origins in `CORS_ORIGINS`. No cookies or credentials are involved.
 
@@ -758,13 +794,14 @@ sequenceDiagram
 2. When a file is chosen, the browser reads it with `await file.text()`, takes the format from the extension (`.txt`, `.vtt`, `.json`) and rejects files over the size limit.
 3. Submit calls `api.createMeeting({ title, meeting_date, participant_names, transcript_text, format, source: "upload" })`, with the date converted from local time to UTC.
 4. `routers/meetings.py` validates the body against `MeetingCreate` (title length, format enum, non-empty text, maximum length): 422 if invalid.
-5. `meetings_service.create_meeting()`:
-   1. `parse_transcript(text, format)`: the dispatcher picks the txt, vtt or json parser and returns `list[ParsedSegment]`, or raises `TranscriptParseError` ("Line 4: expected `[HH:MM:SS] Speaker: text`"), which becomes a 422.
-   2. Sorts the segments by `start_ms` (stable sort) and assigns `position` 0, 1, 2, …
-   3. Resolves people: every distinct speaker and every name typed in the form goes through `get_or_create_participant(name)`, which matches case-insensitively and gives new people a colour derived from their name.
-   4. Builds the `Meeting` (`source`; `duration_ms` = the last segment's `end_ms`), its `TranscriptSegment`s and its participant links.
-   5. `generate_summary(segments)` returns the overview, keywords, chapters and action items (assignee = speaker, `source_start_ms` = segment start), stored with `generated_by = "rule_based"`.
-   6. One `db.commit()`: everything is written, or nothing is. (Once bonus 4 exists, the insert trigger also indexes each new segment in `segments_fts`, inside the same transaction.)
+5. `services/meetings.create_meeting()`:
+   1. `parse_transcript(text, format)`: the dispatcher picks the txt, vtt or json parser and returns `list[ParsedSegment]`, or raises `TranscriptParseError` ("Line 4: expected '[HH:MM:SS] Speaker Name: text' or 'Speaker Name: text'"), which becomes a 422.
+   2. `generate_notes(segments)` returns `MeetingNotes`: overview, keywords, chapters and action items (assignee = speaker, `source_start_ms` = segment start), marked `generated_by = "rule_based"`.
+   3. `save_meeting(...)` (shared with the seed script):
+      - sorts the segments by `start_ms` (stable sort) and assigns `position` 0, 1, 2, …;
+      - resolves every speaker, name typed in the form and assignee through `get_or_create_participant(name)`, which matches case-insensitively and gives new people a colour derived from their name;
+      - builds the `Meeting` (`duration_ms` = the last segment's `end_ms`) with its segments, participant links, summary, chapters and action items, then `flush()`es.
+   4. One `db.commit()`: everything is written, or nothing is. (Once bonus 4 exists, the insert trigger also indexes each new segment in `segments_fts`, inside the same transaction.) The meeting is then re-read with `get_meeting`.
 6. The API answers 201 with the `MeetingDetail`. The modal closes, a success toast appears, and the app navigates to `/meetings/{id}`.
 7. On any error, a toast shows the server's `detail`, and the modal stays open with the user's input intact.
 
@@ -871,5 +908,6 @@ flowchart TB
 - No pagination: the library returns every meeting, which is fine for dozens of meetings.
 - SQLite allows one writer at a time and lives in a file on one server, so the API can't scale horizontally as it is. Migration path: Postgres + Alembic, with FTS5 replaced by a `tsvector` column and a GIN index.
 - `lib/types.ts` mirrors the Pydantic schemas by hand; a larger project would generate it from `/openapi.json`.
-- Uploads are capped at roughly 1 MB of text.
+- Uploads are capped at 1,000,000 characters of text (about 1 MB), and a meeting at 50 named participants.
+- Seed transcripts are hand-written; their timestamps are computed from word counts at a measured pace (95–100 words per minute plus pauses), so the simulated player moves at a believable rhythm and each meeting runs 15–17 minutes.
 - Chat (bonus 6): retrieval is keyword-based, so it can miss paraphrases; the rate limit is per meeting and stored in our own table; answers can still be wrong, which is why every claim carries a clickable timestamp.
