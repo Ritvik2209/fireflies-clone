@@ -21,7 +21,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Sidebar />
           <div className="flex min-w-0 flex-1 flex-col">
             <Topbar />
-            <main className="flex-1 overflow-y-auto">{children}</main>
+            {/* relative: absolutely positioned children (e.g. sr-only text) stay inside main's
+                scroll area instead of stretching the whole document. */}
+            <main className="relative flex-1 overflow-y-auto">{children}</main>
           </div>
         </div>
       </body>

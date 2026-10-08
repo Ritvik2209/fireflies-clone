@@ -45,7 +45,7 @@ export function MeetingWorkspace({ meeting }: { meeting: MeetingDetail }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex-[11] overflow-y-auto">
+        <div className="relative min-w-0 flex-[11] overflow-y-auto">
           <div className="mx-auto max-w-3xl px-10 py-8">
             <MeetingHeader meeting={meeting} />
             <SummaryPanel

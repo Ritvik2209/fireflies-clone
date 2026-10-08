@@ -29,7 +29,7 @@ export const TranscriptPanel = memo(function TranscriptPanel({
   onFollowingChange,
   onSeek,
 }: TranscriptPanelProps) {
-  const listRef = useRef<HTMLOListElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null); // the scrolling list of lines
   const [query, setQuery] = useState("");
   const [current, setCurrent] = useState(0); // the selected match
   const lines = useMemo(() => segments.map((segment) => segment.text), [segments]);
@@ -41,12 +41,12 @@ export const TranscriptPanel = memo(function TranscriptPanel({
   // Keep the line being played in view. This runs when the active line changes, not every frame.
   // It pauses while the user reads elsewhere (scrolled away, or searching), so it never fights them.
   useEffect(() => {
-    if (following && !searching && activeIndex >= 0) scrollToLine(listRef.current, activeIndex);
+    if (following && !searching && activeIndex >= 0) scrollToLine(scrollRef.current, activeIndex);
   }, [activeIndex, following, searching]);
 
   // Bring the selected search match into view.
   useEffect(() => {
-    if (currentMatch) scrollToLine(listRef.current, currentMatch.line);
+    if (currentMatch) scrollToLine(scrollRef.current, currentMatch.line);
   }, [currentMatch]);
 
   function changeQuery(value: string) {
@@ -60,7 +60,7 @@ export const TranscriptPanel = memo(function TranscriptPanel({
     setCurrent((index) => (index + direction + matches.length) % matches.length);
   }
 
-  // Wheel and touch scrolling come only from the user; our own scrollIntoView doesn't fire them.
+  // Wheel and touch scrolling come only from the user; our own scrollTo doesn't fire them.
   function stopFollowing() {
     if (following) onFollowingChange(false);
   }
@@ -85,11 +85,12 @@ export const TranscriptPanel = memo(function TranscriptPanel({
         />
       </div>
       <div
+        ref={scrollRef}
         onWheel={stopFollowing}
         onTouchMove={stopFollowing}
-        className="flex-1 overflow-y-auto px-3 pb-3"
+        className="relative flex-1 overflow-y-auto px-3 pb-3"
       >
-        <ol ref={listRef}>
+        <ol>
           {segments.map((segment, index) => (
             <TranscriptLine
               key={segment.id}
@@ -118,9 +119,14 @@ export const TranscriptPanel = memo(function TranscriptPanel({
   );
 });
 
-/** Smoothly scrolls line `index` to the middle of the transcript. */
-function scrollToLine(list: HTMLElement | null, index: number) {
-  list
-    ?.querySelector(`[data-index="${index}"]`)
-    ?.scrollIntoView({ block: "center", behavior: "smooth" });
+/**
+ * Smoothly scrolls line `index` to the middle of the transcript. It scrolls only the transcript:
+ * element.scrollIntoView() would also scroll every scrollable ancestor, including the page.
+ */
+function scrollToLine(container: HTMLElement | null, index: number) {
+  const line = container?.querySelector<HTMLElement>(`[data-index="${index}"]`);
+  if (!container || !line) return;
+  // offsetTop is measured from the container, because the container is `relative`.
+  const top = line.offsetTop - (container.clientHeight - line.offsetHeight) / 2;
+  container.scrollTo({ top, behavior: "smooth" });
 }
