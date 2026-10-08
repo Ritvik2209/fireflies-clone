@@ -1,12 +1,10 @@
-"use client";
-
 import { CircleAlert, SearchX, Video } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import { MeetingRow } from "@/components/meetings/MeetingRow";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { SlowLoadingHint } from "@/components/ui/SlowLoadingHint";
 import { formatDayHeading, localDateKey } from "@/lib/format";
 import type { MeetingListItem } from "@/lib/types";
 
@@ -111,22 +109,5 @@ export function MeetingListSkeleton() {
       </div>
       <SlowLoadingHint />
     </div>
-  );
-}
-
-/** After a few seconds of loading, explain the wait: Render's free tier sleeps when idle. */
-function SlowLoadingHint() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setVisible(true), 4000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (!visible) return null;
-  return (
-    <p className="mt-6 text-center text-sm text-gray-500">
-      Waking up the server… the free hosting tier sleeps when idle, so this can take up to a minute.
-    </p>
   );
 }

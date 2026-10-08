@@ -35,6 +35,9 @@
   /* Transcript timestamps and in-text links. */
   --color-link: #175cd3;
 
+  /* Background of the transcript line that is playing. */
+  --color-active-line: #eff1fe;
+
   /* Initials avatars. */
   --color-avatar-indigo: #6472c3;
   --color-avatar-green: #6ce9a6;
