@@ -1,0 +1,14 @@
+[00:00:02] Olivia Park: Thanks for joining, everyone. Today we're agreeing the launch plan for offline mode, which leaves beta at the end of the month.
+[00:00:14] Alex Morgan: Quick status from product: the three pilot customers have been using it for two weeks, and sync conflicts are down to a handful a day.
+[00:00:29] Tom Becker: Support has seen four tickets about offline mode so far, all about photos uploading slowly on weak connections.
+[00:00:41] Alex Morgan: That's a known limit. Photos upload last, after the job updates, so a weak signal delays them. We'll mention it in the release notes.
+[00:00:56] Olivia Park: For the launch itself, I'd like a blog post, an email to all customers and a short video showing a technician closing a job in a basement.
+[00:01:12] Tom Becker: Can we also update the help center before the email goes out? Otherwise the first questions land on my team.
+[00:01:23] Olivia Park: Good point. Tom, I'll need the help center articles updated by the 26th so the email can link to them.
+[00:01:35] Tom Becker: I'll update the three offline articles by the 26th and add a troubleshooting section for photo uploads.
+[00:01:48] Alex Morgan: I'll record the demo video with Mei next week. We'll film it in the office basement, where there's genuinely no signal.
+[00:02:03] Olivia Park: Perfect. Let's send the customer email on the 28th, after the help center is ready.
+[00:02:14] Tom Becker: Will offline mode be on for everyone automatically, or do customers need to turn it on?
+[00:02:24] Alex Morgan: On for everyone. Admins can switch it off per team if they want, but the default is on.
+[00:02:36] Olivia Park: Great. I'll draft the blog post and the email this week and share them for review by Friday.
+[00:02:48] Alex Morgan: Sounds good. Let's follow up in this channel once the drafts are ready.

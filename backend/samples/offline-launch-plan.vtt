@@ -1,0 +1,57 @@
+WEBVTT
+
+1
+00:00:02.000 --> 00:00:14.000
+<v Olivia Park>Thanks for joining, everyone. Today we're agreeing the launch plan for offline mode, which leaves beta at the end of the month.</v>
+
+2
+00:00:14.000 --> 00:00:29.000
+<v Alex Morgan>Quick status from product: the three pilot customers have been using it for two weeks, and sync conflicts are down to a handful a day.</v>
+
+3
+00:00:29.000 --> 00:00:41.000
+<v Tom Becker>Support has seen four tickets about offline mode so far, all about photos uploading slowly on weak connections.</v>
+
+4
+00:00:41.000 --> 00:00:56.000
+<v Alex Morgan>That's a known limit. Photos upload last, after the job updates, so a weak signal delays them. We'll mention it in the release notes.</v>
+
+5
+00:00:56.000 --> 00:01:12.000
+<v Olivia Park>For the launch itself, I'd like a blog post, an email to all customers and a short video showing a technician closing a job in a basement.</v>
+
+6
+00:01:12.000 --> 00:01:23.000
+<v Tom Becker>Can we also update the help center before the email goes out? Otherwise the first questions land on my team.</v>
+
+7
+00:01:23.000 --> 00:01:35.000
+<v Olivia Park>Good point. Tom, I'll need the help center articles updated by the 26th so the email can link to them.</v>
+
+8
+00:01:35.000 --> 00:01:48.000
+<v Tom Becker>I'll update the three offline articles by the 26th and add a troubleshooting section for photo uploads.</v>
+
+9
+00:01:48.000 --> 00:02:03.000
+<v Alex Morgan>I'll record the demo video with Mei next week. We'll film it in the office basement, where there's genuinely no signal.</v>
+
+10
+00:02:03.000 --> 00:02:14.000
+<v Olivia Park>Perfect. Let's send the customer email on the 28th, after the help center is ready.</v>
+
+11
+00:02:14.000 --> 00:02:24.000
+<v Tom Becker>Will offline mode be on for everyone automatically, or do customers need to turn it on?</v>
+
+12
+00:02:24.000 --> 00:02:36.000
+<v Alex Morgan>On for everyone. Admins can switch it off per team if they want, but the default is on.</v>
+
+13
+00:02:36.000 --> 00:02:48.000
+<v Olivia Park>Great. I'll draft the blog post and the email this week and share them for review by Friday.</v>
+
+14
+00:02:48.000 --> 00:02:53.200
+<v Alex Morgan>Sounds good. Let's follow up in this channel once the drafts are ready.</v>
