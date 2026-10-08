@@ -1,0 +1,9 @@
+/** Glowworm's mark: a white spark on a purple tile (our own logo, not Fireflies'). */
+export function Logo({ className = "size-7" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} aria-hidden>
+      <rect width="32" height="32" rx="8" className="fill-brand-600" />
+      <path d="M16 7l2.2 6.8L25 16l-6.8 2.2L16 25l-2.2-6.8L7 16l6.8-2.2z" className="fill-white" />
+    </svg>
+  );
+}

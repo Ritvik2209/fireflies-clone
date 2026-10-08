@@ -1,1 +1,45 @@
 @import "tailwindcss";
+
+/*
+ * Design tokens. Colours were sampled from Fireflies' UI (see docs/reference/README.md);
+ * they become Tailwind classes such as bg-brand-600, text-gray-500 or bg-avatar-green.
+ */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand-25: #fafaff;
+  --color-brand-50: #f4f3ff;
+  --color-brand-100: #ebe9fe;
+  --color-brand-200: #d9d6fe;
+  --color-brand-300: #bdb4fe;
+  --color-brand-400: #9b8afb;
+  --color-brand-500: #7a5af8;
+  --color-brand-600: #6938ef;
+  --color-brand-700: #5925dc;
+  --color-brand-800: #4a1fb8;
+  --color-brand-900: #3e1c96;
+
+  /* Replaces Tailwind's default grey scale. */
+  --color-gray-25: #fcfcfd;
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f2f4f7;
+  --color-gray-200: #eaecf0;
+  --color-gray-300: #d0d5dd;
+  --color-gray-400: #98a2b3;
+  --color-gray-500: #667085;
+  --color-gray-600: #475467;
+  --color-gray-700: #344054;
+  --color-gray-800: #1d2939;
+  --color-gray-900: #101828;
+
+  /* Transcript timestamps and in-text links. */
+  --color-link: #175cd3;
+
+  /* Initials avatars. */
+  --color-avatar-indigo: #6472c3;
+  --color-avatar-green: #6ce9a6;
+  --color-avatar-yellow: #fec84b;
+  --color-avatar-orange: #f4b17a;
+  --color-avatar-pink: #f7a8e0;
+  --color-avatar-cyan: #6be4fd;
+}
