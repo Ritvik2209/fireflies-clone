@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status: updated after Phase 4.** The backend core (database, parsers, summary generator, services, API, seed data, tests), the frontend shell, the meetings library and the meeting page (player, transcript sync and search, notes) are built and deployed; names below match the code. The create/edit flows and action-item editing (§8.6, §8.7) are still the plan for Phase 5. The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
+> **Status: updated after Phase 7 (dark mode).** The backend core (database, parsers, summary generator, services, API, seed data, tests), the frontend shell, the meetings library, the meeting page (player, transcript sync and search, notes) and dark mode (§9.1, built before Phase 5 at the owner's request) are built and deployed; names below match the code. The create/edit flows and action-item editing (§8.6, §8.7) are still the plan for Phase 5. The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
 
 **Contents:** [1. Overview](#1-system-overview) · [2. Stack](#2-tech-stack) · [3. Repository layout](#3-repository-layout) · [4. Backend](#4-backend) · [5. Frontend](#5-frontend) · [6. Database](#6-database) · [7. API](#7-api) · [8. Core data flows](#8-core-data-flows) · [9. Bonus features](#9-bonus-features) · [10. Deployment](#10-deployment) · [11. Assumptions and trade-offs](#11-assumptions-and-trade-offs)
 
@@ -285,7 +285,7 @@ flowchart LR
 
 - Tailwind, with the purple accent and neutral greys defined once as theme tokens in `globals.css` and matched against the reference screenshots. The app is branded **Glowworm**, with its own simple logo.
 - Avatar and (bonus 2) tag colours arrive from the API as palette keys (`"violet"`, `"amber"`, …) and are mapped in one place to complete, static Tailwind class strings. Tailwind only generates classes it finds written out in the source, so `bg-${color}-500` would silently produce no style.
-- Dark mode (bonus 1): `next-themes` toggles a `dark` class on `<html>`, and components use `dark:` variants.
+- Dark mode (bonus 1): `next-themes` toggles a `dark` class on `<html>`, and the colour tokens get dark values under it (§9.1). White backgrounds use the `surface` token (`bg-surface`), so they can turn dark.
 
 ## 6. Database
 
@@ -844,11 +844,31 @@ sequenceDiagram
 
 Built only after the Core Gate passes, in this order. These are design summaries; each phase replaces its summary with the step-by-step flow it actually built.
 
-### 9.1 Dark mode (Phase 7)
+### 9.1 Dark mode (Phase 7, built before Phase 5 at the owner's request)
 
-- `next-themes` with `attribute="class"`: it toggles a `dark` class on `<html>` and remembers the choice in `localStorage`, defaulting to the system setting.
-- A toggle in the top bar; every component gets `dark:` variants (Tailwind v4 needs a `@custom-variant dark` line in `globals.css` for class-based dark mode).
-- `next-themes` sets the class with a small script that runs before the page paints, so there's no flash of the wrong theme; `<html suppressHydrationWarning>` because the class differs between the server HTML and the client.
+**How it works:**
+1. `ThemeProvider` from `next-themes` (`attribute="class"`, `defaultTheme="system"`, `enableSystem`, `disableTransitionOnChange`) wraps the app in `app/layout.tsx`.
+2. Before the page paints, a small inline script puts `class="dark"` on `<html>`. It follows the operating system until the user picks a theme, and that choice is saved in `localStorage` under `theme`. The script also sets `color-scheme: dark`, so native controls (date pickers, selects, scrollbars) turn dark too. `<html suppressHydrationWarning>` is needed because that attribute differs from the server HTML on purpose.
+3. `ThemeToggle` in the top bar calls `setTheme(resolvedTheme === "dark" ? "light" : "dark")`.
+   - Which icon shows (moon or sun) is decided by CSS (`dark:hidden`, `hidden dark:block`), not by JavaScript.
+   - The server can't know the theme, so a JavaScript choice would mismatch on hydration or need a "mounted" flag. With CSS it's right from the first frame.
+
+**Colours: a palette swap, not a `dark:` class on every element.**
+- `globals.css` gives the neutral colour variables dark values under `.dark`:
+  - the grey scale is mirrored, so gray-900 is still "headings" (now the brightest) and gray-200 still "borders";
+  - `surface` (the old `bg-white`) becomes near-black;
+  - `link`, `active-line` and the purple tints (`brand-50` backgrounds, `brand-100` focus rings) get dark versions.
+- Values follow Untitled UI's dark palette.
+- Every component that uses these tokens adapts with no changes. A component added later is dark-ready too.
+- Only a few accents use `dark:` classes: purple text (`text-brand-700 dark:text-brand-300`) and the icon tiles. Search marks use `text-black`, so they read well on yellow in both themes.
+- The overrides live in `@layer base`. That layer comes after Tailwind's theme layer, so they win. (An unlayered `.dark {}` rule was missing from the dev server's CSS, though the production build kept it.)
+- `@custom-variant dark (&:where(.dark, .dark *))` makes the `dark:` classes follow the class rather than the media query, so the toggle can override the system setting.
+
+**Verified** in a scripted browser:
+- First visit with a dark system setting → dark.
+- Toggle → light, and that survives a reload even though the system is dark.
+- Toggle → dark, and that survives a reload with the system set to light.
+- Placeholder pages follow too, the console shows no errors, and the core tests still pass in light mode.
 
 ### 9.2 Tags + filtering (Phase 8)
 

@@ -190,6 +190,13 @@ frontend/src/
     - Action items are grouped by assignee and read-only until Phase 5. Their timestamp seeks.
     - The notes show whether they're hand-written seed notes or generated from the transcript.
   - **Not yet:** `?t=` deep links arrive with global search (bonus 4).
+- **Phase 7 (dark mode) implementation choices** (details in ARCHITECTURE.md §9.1):
+  - **Palette swap:** under `.dark` the neutral colour tokens get dark values (`@layer base` in `globals.css`), instead of a `dark:` class on every element.
+    - The grey scale is mirrored, so each step keeps its role.
+    - `bg-white` became the `surface` token; `link`, `active-line`, `brand-50` and `brand-100` get dark values.
+    - Only purple text (`dark:text-brand-300`) and icon tiles use `dark:` classes; search marks use `text-black`.
+  - **`ThemeToggle`** (top bar) switches light/dark. Its icon is chosen by CSS, so there's no hydration mismatch and no "mounted" flag.
+  - **`next-themes`:** default `system`; the choice is remembered in `localStorage`; it sets `color-scheme`, so native controls go dark; transitions are disabled while switching.
 - **Seed world:** a fictional field-service software company, Kestrel (people and emails in `seed_data.json`; the default user Alex Morgan is Head of Product). Seed dialogue is hand-written; times were computed from word counts (95–100 wpm plus pauses) so meetings run 15–17 min. Bonus phases add their seed data to the same file.
 
 ## Schema summary (full spec and ER diagram: ARCHITECTURE.md §6)
@@ -266,7 +273,11 @@ npm run build                        # also type-checks
 - **New tables or seed data:** `create_all()` creates missing tables on startup but never alters existing ones, and seed data only loads into an empty DB. Locally, delete `backend/app.db`; on Render every deploy starts from a fresh disk. Tell the owner whenever a phase needs this.
 - **FTS5:** verify early (Phase 1) that Render's Python has it (it does locally, on SQLite 3.42). When the FTS table is added to an existing DB, run `INSERT INTO segments_fts(segments_fts) VALUES('rebuild')` at startup so rows that already exist get indexed.
 - `with TestClient(app)` runs the startup lifespan (create tables, seed). Point tests at a temporary database before the app touches the real one.
-- Tailwind v4 is configured in CSS. Class-based dark mode with `next-themes` needs `@custom-variant dark (&:where(.dark, .dark *));` in `globals.css`.
+- **Tailwind v4 dark mode:**
+  - Tailwind v4 is configured in CSS. Class-based dark mode with `next-themes` needs `@custom-variant dark (&:where(.dark, .dark *));` in `globals.css`.
+  - Put CSS-variable overrides such as `.dark { --color-… }` inside `@layer base`. An unlayered `.dark {}` rule was dropped from the Turbopack **dev** server's CSS (the production build kept it).
+  - To check what the browser actually got, grep the served CSS (`/_next/static/chunks/*.css`).
+- **Stopping the dev server:** stopping its background shell can leave the `next` Node process running on port 3001 (then `EADDRINUSE`). Find it with `Get-NetTCPConnection -LocalPort 3001`, check that it's our `start-server.js`, and end it with `taskkill /PID <pid> /T /F`. Never touch port 3000 (Grafana).
 - Next.js client pages that call `useSearchParams()` need a `<Suspense>` boundary, or the production build fails.
 - **Scroll areas must be `relative`.**
   - Otherwise an absolutely positioned child, such as Tailwind's `sr-only` text, escapes the area and stretches the document. On the meeting page that made the whole page scrollable (1244 px in an 805 px window).
@@ -287,7 +298,7 @@ npm run build                        # also type-checks
 - [ ] **Phase 6: Core deploy + verification (~45 min).** Deploy, walk the Core Gate on the live link, write the README's core sections, fix anything that fails. Report, then wait for "go".
 
 **Part 2: Bonuses.** Each is its own phase: small commits, its tests, seed updates if relevant, ARCHITECTURE.md data flow, re-check the core, deploy, stop for "go".
-- [ ] **Phase 7: Dark mode (~45 min)**
+- [x] **Phase 7: Dark mode (~45 min).** Built on 9 Oct (~01:50 IST) *before* Phases 5–6, at the owner's request, because of session limits. Phases 5 and 6 come next; the Core Gate still applies before the other bonuses.
 - [ ] **Phase 8: Tags + filtering (~1.25 h)**
 - [ ] **Phase 9: Export TXT / Markdown / PDF (~1 h)**
 - [ ] **Phase 10: Global search, FTS5 (~1.25 h)**
