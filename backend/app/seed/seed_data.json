@@ -1,0 +1,1538 @@
+{
+  "user": {
+    "name": "Alex Morgan",
+    "email": "alex.morgan@example.com"
+  },
+  "people": {
+    "Alex Morgan": {
+      "email": "alex.morgan@example.com",
+      "color": "indigo"
+    },
+    "Priya Shah": {
+      "email": "priya.shah@example.com",
+      "color": "green"
+    },
+    "Daniel Okafor": {
+      "email": "daniel.okafor@example.com",
+      "color": "orange"
+    },
+    "Mei Tanaka": {
+      "email": "mei.tanaka@example.com",
+      "color": "pink"
+    },
+    "Sam Rivera": {
+      "email": "sam.rivera@example.com",
+      "color": "cyan"
+    },
+    "Lena Fischer": {
+      "email": "lena.fischer@example.com",
+      "color": "yellow"
+    },
+    "Jordan Blake": {
+      "email": "jordan.blake@example.com",
+      "color": "cyan"
+    },
+    "Hannah Weiss": {
+      "email": "hannah.weiss@example.org",
+      "color": "yellow"
+    },
+    "Marcus Lee": {
+      "email": "marcus.lee@example.org",
+      "color": "green"
+    },
+    "Ravi Menon": {
+      "email": "ravi.menon@example.com",
+      "color": "orange"
+    },
+    "Claire Dubois": {
+      "email": "claire.dubois@example.net",
+      "color": "pink"
+    },
+    "Tom Becker": {
+      "email": "tom.becker@example.com",
+      "color": "green"
+    },
+    "Nadia Hassan": {
+      "email": "nadia.hassan@example.org",
+      "color": "yellow"
+    }
+  },
+  "meetings": [
+    {
+      "title": "Sprint 42 planning",
+      "date": "2026-10-06T04:30:00Z",
+      "duration": "17:10",
+      "participants": [
+        "Priya Shah",
+        "Daniel Okafor",
+        "Mei Tanaka",
+        "Sam Rivera",
+        "Alex Morgan"
+      ],
+      "transcript": [
+        [
+          "Priya Shah",
+          "00:00",
+          "Morning everyone, let's get going. This is planning for sprint 42, which runs from today until Friday the 16th. The headline goal I'd like us to commit to is shipping the offline mode beta of the technician app to our three pilot customers. Everything else in the sprint should support that or be a small, well-understood bug fix."
+        ],
+        [
+          "Alex Morgan",
+          "00:47",
+          "Plus one on that goal. Quick context for everyone: offline mode came up in almost every customer call this quarter. Technicians work in basements, plant rooms and rural sites where the signal drops, and right now the app just shows a spinner. The Coastline Facilities deal we're working on basically depends on it, so a solid beta matters more than a polished one."
+        ],
+        [
+          "Priya Shah",
+          "01:37",
+          "Before we size anything, capacity. Daniel, you're on call this week, so I'm counting you at about seventy percent. Mei and Sam are at full capacity, and I'm keeping some of my own time free for interviews. That gives us roughly thirty-four points if we're honest about it."
+        ],
+        [
+          "Daniel Okafor",
+          "02:17",
+          "Seventy percent sounds right. The last on-call rotation ate most of a day with the notification issue, so I'd rather plan conservatively than carry work over again."
+        ],
+        [
+          "Mei Tanaka",
+          "02:46",
+          "On the app side, offline mode is in decent shape. Job updates are already written to a local queue when there's no connection, and they replay in order once the phone is back online. The big missing piece is conflict handling, when a dispatcher changes a job while the technician is offline and both edits hit the server."
+        ],
+        [
+          "Alex Morgan",
+          "03:32",
+          "What should the technician actually see in that case? My instinct is that the dispatcher's change should win for scheduling fields, like time and address, but the technician's notes and photos should never be lost."
+        ],
+        [
+          "Mei Tanaka",
+          "04:05",
+          "That matches what I had in mind. Server wins for schedule fields, both sides kept for notes and photos, and a small banner on the job that says it was updated while you were offline. I'd estimate the conflict screen and the merge logic at eight points."
+        ],
+        [
+          "Daniel Okafor",
+          "04:46",
+          "For the backend, the sync endpoint needs idempotency keys so that a replayed update doesn't get applied twice when the network flickers. I also want to accept updates in batches instead of one request per change. I'd call that five points, and I'll have the idempotency keys in by Thursday."
+        ],
+        [
+          "Priya Shah",
+          "05:28",
+          "Good. Daniel, does the batch endpoint change the API contract for anyone else?"
+        ],
+        [
+          "Daniel Okafor",
+          "05:47",
+          "Only for the mobile app. The web dispatch board keeps using the existing endpoints, so it's invisible to customers who integrate with us."
+        ],
+        [
+          "Sam Rivera",
+          "06:13",
+          "From the QA side, offline is hard to test by hand, so I want to build a proper rig. I'm thinking network throttling profiles, airplane mode toggles in the middle of a job, and a scripted flaky connection. I'll get that test rig set up by Friday so we can use it for the whole sprint."
+        ],
+        [
+          "Sam Rivera",
+          "06:59",
+          "Device coverage is the other question. I'd like Android 12 through 15 on at least two manufacturers, plus the two most recent iOS versions. Most of our pilot technicians are on company Android phones, so Android gets the deeper testing."
+        ],
+        [
+          "Alex Morgan",
+          "07:35",
+          "That's right for the pilots. Coastline issues Android phones to every technician, and so does Summit. iOS can be lighter for the beta as long as nothing is broken."
+        ],
+        [
+          "Priya Shah",
+          "08:04",
+          "Okay. Next, carry-over bugs. There are two I don't want to drag into another sprint. First, the duplicate job notifications that support keeps escalating. Second, the time zone bug where the schedule view shows jobs an hour early for customers in Arizona."
+        ],
+        [
+          "Daniel Okafor",
+          "08:41",
+          "The duplicate notifications are mine. It's a retry in the notification worker that doesn't check whether the push was already delivered. The fix is small, maybe two points, and it's related to the idempotency work anyway."
+        ],
+        [
+          "Mei Tanaka",
+          "09:15",
+          "I'll take the Arizona bug. Arizona doesn't observe daylight saving time and we're applying a fixed offset instead of using the proper time zone database. Probably three points including tests for a few other zones."
+        ],
+        [
+          "Sam Rivera",
+          "09:48",
+          "Can we add a regression test for the time zone bug that runs every night? It has come back twice already."
+        ],
+        [
+          "Mei Tanaka",
+          "10:13",
+          "Yes, I'll add a nightly test that checks Arizona, India and a southern hemisphere zone."
+        ],
+        [
+          "Priya Shah",
+          "10:34",
+          "Great. The last item is the route optimization request from Alex."
+        ],
+        [
+          "Alex Morgan",
+          "10:52",
+          "Right. For Q4 planning I need a rough sense of how big route optimization is. Dispatchers keep asking for suggested job orders that minimize driving time. I don't need it built this sprint, I just need an estimate I can trust."
+        ],
+        [
+          "Priya Shah",
+          "11:29",
+          "Then let's treat it as a spike. Daniel, could you timebox two days to compare building our own solver against an external routing API, and write up the trade-offs? Ideally after the idempotency work is done."
+        ],
+        [
+          "Daniel Okafor",
+          "12:02",
+          "Two days is reasonable. I'll look at cost per request, latency for a day with sixty technicians, and how we'd handle jobs with fixed appointment windows."
+        ],
+        [
+          "Alex Morgan",
+          "12:30",
+          "Perfect. A one-page write-up is plenty."
+        ],
+        [
+          "Priya Shah",
+          "12:46",
+          "Let's talk risks. The biggest one I see is the iOS review time. If Apple takes a few days, the pilot slips."
+        ],
+        [
+          "Sam Rivera",
+          "13:11",
+          "That's why I need a release candidate by Monday the 12th. That leaves time for a full regression pass and a buffer for review on both stores."
+        ],
+        [
+          "Mei Tanaka",
+          "13:39",
+          "Monday works if the conflict screen design is final by Wednesday. Lena already shared a draft, so I think we're fine."
+        ],
+        [
+          "Alex Morgan",
+          "14:04",
+          "I'll make sure Lena knows it's on the critical path. I'll also confirm the list of beta customers with customer success today, so Sam knows which accounts to enable."
+        ],
+        [
+          "Priya Shah",
+          "14:33",
+          "One more scope question. Dark mode for the technician app keeps getting requested. Do we want it in this sprint?"
+        ],
+        [
+          "Alex Morgan",
+          "14:57",
+          "No, let's defer dark mode. It's a nice to have and it would compete with offline mode for Mei's time."
+        ],
+        [
+          "Priya Shah",
+          "15:21",
+          "Agreed. So the commitment for sprint 42 is the offline mode beta, the two carry-over bugs and the route optimization spike. By my count that's about thirty-one points, which leaves a small buffer."
+        ],
+        [
+          "Daniel Okafor",
+          "15:53",
+          "Works for me."
+        ],
+        [
+          "Mei Tanaka",
+          "16:07",
+          "Same here."
+        ],
+        [
+          "Sam Rivera",
+          "16:20",
+          "Sounds good. I'll post the test plan in the channel this afternoon."
+        ],
+        [
+          "Priya Shah",
+          "16:39",
+          "Thanks everyone. I'll update the board and share the sprint summary after this call."
+        ]
+      ],
+      "summary": {
+        "overview": "Priya kicked off planning for sprint 42 (October 6 to 16) with one headline goal: ship the offline mode beta of the technician app to three pilot customers. Mei will build conflict handling (the dispatcher's schedule changes win, technicians' notes and photos are always kept), Daniel will add idempotency keys and batched sync to the backend, and Sam will build a network-throttling test rig with Android-first device coverage. The team also committed to fixing duplicate job notifications and the Arizona time zone bug plus a two-day route optimization spike, and deferred dark mode.",
+        "keywords": [
+          "offline mode",
+          "sync",
+          "conflict handling",
+          "idempotency",
+          "test rig",
+          "route optimization"
+        ]
+      },
+      "chapters": [
+        [
+          "00:00",
+          "Sprint goal and capacity"
+        ],
+        [
+          "02:46",
+          "Offline mode and conflict handling"
+        ],
+        [
+          "06:13",
+          "Testing plan and device coverage"
+        ],
+        [
+          "08:04",
+          "Carry-over bugs"
+        ],
+        [
+          "11:29",
+          "Route optimization spike"
+        ],
+        [
+          "12:46",
+          "Risks and final commitment"
+        ]
+      ],
+      "action_items": [
+        {
+          "text": "Add idempotency keys to the sync endpoint",
+          "assignee": "Daniel Okafor",
+          "at": "04:46",
+          "done": true
+        },
+        {
+          "text": "Build the conflict resolution screen and merge logic",
+          "assignee": "Mei Tanaka",
+          "at": "04:05",
+          "done": false
+        },
+        {
+          "text": "Set up the network-throttling test rig",
+          "assignee": "Sam Rivera",
+          "at": "06:13",
+          "done": true
+        },
+        {
+          "text": "Add a nightly time zone regression test (Arizona, India, southern hemisphere)",
+          "assignee": "Mei Tanaka",
+          "at": "10:13",
+          "done": false
+        },
+        {
+          "text": "Confirm the list of beta customers with customer success",
+          "assignee": "Alex Morgan",
+          "at": "14:04",
+          "done": true
+        },
+        {
+          "text": "Run the two-day route optimization spike and write up the trade-offs",
+          "assignee": "Daniel Okafor",
+          "at": "12:02",
+          "done": false
+        }
+      ]
+    },
+    {
+      "title": "Discovery call: Coastline Facilities",
+      "date": "2026-10-05T10:00:00Z",
+      "duration": "16:33",
+      "participants": [
+        "Jordan Blake",
+        "Alex Morgan",
+        "Hannah Weiss",
+        "Marcus Lee"
+      ],
+      "transcript": [
+        [
+          "Jordan Blake",
+          "00:00",
+          "Hi Hannah, hi Marcus, thanks for making the time. I'm Jordan, I look after new customers here at Kestrel, and I've brought Alex, our head of product, because you had some detailed questions last time. My goal for today is to understand how your team schedules work right now, and then we can see together whether Kestrel is a good fit."
+        ],
+        [
+          "Hannah Weiss",
+          "00:49",
+          "Sounds good. Quick background on us: Coastline Facilities does maintenance for about a hundred and forty commercial buildings, mostly offices and retail along the coast. We have sixty technicians in the field and two dispatchers who coordinate everything."
+        ],
+        [
+          "Jordan Blake",
+          "01:23",
+          "And how does a typical job get from a request to a technician today?"
+        ],
+        [
+          "Hannah Weiss",
+          "01:44",
+          "Honestly, mostly spreadsheets and phone calls. Requests come in by email or through our maintenance system, the dispatchers copy them into a shared spreadsheet, and then they call or text technicians to hand out the work. It worked when we had twenty technicians. At sixty, it's falling apart."
+        ],
+        [
+          "Alex Morgan",
+          "02:25",
+          "Where does it hurt the most? If you could fix one thing tomorrow, what would it be?"
+        ],
+        [
+          "Hannah Weiss",
+          "02:47",
+          "Visibility. Our dispatchers have no idea where a job stands until a technician calls back. We've had technicians double booked, two people sent to the same leak, and last month we paid SLA penalties on three contracts because urgent jobs sat unassigned over a weekend."
+        ],
+        [
+          "Hannah Weiss",
+          "03:26",
+          "The other pain is paperwork. Technicians fill in paper job sheets, they come back to the office days later, and invoicing waits on them. Our finance team says we're carrying almost three weeks of unbilled work at any time."
+        ],
+        [
+          "Jordan Blake",
+          "04:01",
+          "That's a pattern we see a lot with growing teams. Marcus, from the IT side, what would you need to be comfortable rolling out a new system?"
+        ],
+        [
+          "Marcus Lee",
+          "04:29",
+          "Three things. Single sign-on with our Microsoft accounts, because I'm not managing another set of passwords. An API or some kind of integration with our maintenance system so requests don't get copied by hand. And clarity on where our data is stored, since a couple of our clients are government buildings."
+        ],
+        [
+          "Alex Morgan",
+          "05:12",
+          "All three are things we support today. Single sign-on works with Microsoft accounts on our business plan. We have a REST API and webhooks, so new requests from your maintenance system can create jobs automatically. And customer data is stored in a single region, which we can confirm in writing."
+        ],
+        [
+          "Marcus Lee",
+          "05:54",
+          "What about the phones? Our technicians use company Android phones, and a lot of our buildings have basements and plant rooms with no signal at all."
+        ],
+        [
+          "Alex Morgan",
+          "06:22",
+          "That's a really good question, and I want to be straight with you. Today the app needs a connection to load new jobs. We're finishing an offline mode right now, where technicians can open jobs, add notes and photos and close jobs without signal, and everything syncs when they're back online. It's going into a beta with pilot customers this month."
+        ],
+        [
+          "Hannah Weiss",
+          "07:10",
+          "That would be huge for us. Half of our urgent jobs are in basements."
+        ],
+        [
+          "Jordan Blake",
+          "07:31",
+          "Let me show you quickly what the dispatcher would see. This is the dispatch board. Each row is a technician, the timeline runs across the day, and the colors show the status of each job: scheduled, en route, on site or done."
+        ],
+        [
+          "Hannah Weiss",
+          "08:08",
+          "Can the dispatcher see which jobs are at risk of missing their SLA?"
+        ],
+        [
+          "Alex Morgan",
+          "08:28",
+          "Yes. Jobs with an SLA get a countdown, and anything at risk is flagged at the top of the board. We're actually redesigning that view right now to make at-risk jobs stand out even more."
+        ],
+        [
+          "Marcus Lee",
+          "09:01",
+          "And the technicians would get jobs pushed to their phones instead of a phone call?"
+        ],
+        [
+          "Jordan Blake",
+          "09:22",
+          "Exactly. They get a notification, they see the address, the access notes and the history of the building, and they update the status as they go. When they close the job, the job sheet with photos and a signature is sent straight to your office."
+        ],
+        [
+          "Hannah Weiss",
+          "10:01",
+          "That alone would fix our invoicing delay. Let's talk about cost. How do you price this?"
+        ],
+        [
+          "Jordan Blake",
+          "10:22",
+          "We price per field user per month, and dispatchers are included. For sixty technicians you'd be on the business plan because of single sign-on. I'd rather send you exact numbers in writing than quote on the spot, and we can include pilot pricing."
+        ],
+        [
+          "Hannah Weiss",
+          "11:00",
+          "A pilot makes sense. Ideally we'd start in November with one region, around fifteen technicians, and if it goes well roll out to everyone in January before our busy season."
+        ],
+        [
+          "Marcus Lee",
+          "11:30",
+          "Before any pilot I'll need your security documentation. We have a standard questionnaire we send to every vendor."
+        ],
+        [
+          "Jordan Blake",
+          "11:53",
+          "Of course. Send it over and we'll return it completed within a week. We also have a security overview and our data processing agreement ready to share."
+        ],
+        [
+          "Alex Morgan",
+          "12:21",
+          "For the pilot, I can set up a sandbox with a sample of your buildings so your dispatchers can try the board with real addresses before day one."
+        ],
+        [
+          "Hannah Weiss",
+          "12:50",
+          "I like that. Our dispatchers are the ones who need convincing, honestly. They're nervous about changing tools during a busy month."
+        ],
+        [
+          "Jordan Blake",
+          "13:14",
+          "Then let's involve them early. I can run a demo just for the dispatchers next week, where they drive and we answer questions."
+        ],
+        [
+          "Hannah Weiss",
+          "13:40",
+          "Yes, let's do that. Tuesday or Wednesday afternoon works best for them."
+        ],
+        [
+          "Marcus Lee",
+          "13:59",
+          "One more question. If we stop using you, can we export everything?"
+        ],
+        [
+          "Alex Morgan",
+          "14:19",
+          "Yes. Jobs, notes, photos and the full history can be exported as CSV and through the API at any time, and that's written into the contract."
+        ],
+        [
+          "Jordan Blake",
+          "14:46",
+          "So, next steps as I understand them. I'll send you a pilot proposal with pricing by Friday. Marcus will send the security questionnaire, and we'll return it within a week. I'll schedule the dispatcher demo for Tuesday or Wednesday next week, and Alex will prepare the sandbox."
+        ],
+        [
+          "Hannah Weiss",
+          "15:26",
+          "That's right. If the proposal works for us, I'd like a decision on the pilot by the end of the month."
+        ],
+        [
+          "Marcus Lee",
+          "15:51",
+          "I'll send the questionnaire today."
+        ],
+        [
+          "Jordan Blake",
+          "16:06",
+          "Great. Thank you both, this was really helpful."
+        ]
+      ],
+      "summary": {
+        "overview": "Jordan and Alex ran a discovery call with Coastline Facilities, which maintains about 140 commercial buildings with 60 technicians and two dispatchers working from spreadsheets and phone calls. Their biggest problems are poor visibility into job status (double bookings and SLA penalties) and paper job sheets that delay invoicing by about three weeks. Marcus needs single sign-on with Microsoft accounts, an integration with their maintenance system and data residency in writing, and offline support for basements is critical. Coastline wants a 15-technician pilot in November and a full rollout in January.",
+        "keywords": [
+          "dispatch",
+          "pilot",
+          "single sign-on",
+          "offline mode",
+          "SLA",
+          "invoicing"
+        ]
+      },
+      "chapters": [
+        [
+          "00:00",
+          "Introductions and how Coastline works today"
+        ],
+        [
+          "02:25",
+          "Pain points: visibility and paperwork"
+        ],
+        [
+          "04:01",
+          "IT requirements: SSO, integrations and data"
+        ],
+        [
+          "05:54",
+          "Offline mode for technicians"
+        ],
+        [
+          "07:31",
+          "Dispatch board demo"
+        ],
+        [
+          "10:01",
+          "Pricing, pilot and next steps"
+        ]
+      ],
+      "action_items": [
+        {
+          "text": "Send the pilot proposal with pricing",
+          "assignee": "Jordan Blake",
+          "at": "14:46",
+          "done": true
+        },
+        {
+          "text": "Send the vendor security questionnaire",
+          "assignee": "Marcus Lee",
+          "at": "15:51",
+          "done": true
+        },
+        {
+          "text": "Return the completed security questionnaire within a week",
+          "assignee": "Jordan Blake",
+          "at": "11:53",
+          "done": false
+        },
+        {
+          "text": "Schedule a demo for Coastline's dispatchers next Tuesday or Wednesday",
+          "assignee": "Jordan Blake",
+          "at": "13:14",
+          "done": false
+        },
+        {
+          "text": "Set up a sandbox with a sample of Coastline's buildings",
+          "assignee": "Alex Morgan",
+          "at": "12:21",
+          "done": false
+        }
+      ]
+    },
+    {
+      "title": "Dispatch board redesign review",
+      "date": "2026-10-07T08:30:00Z",
+      "duration": "15:46",
+      "participants": [
+        "Lena Fischer",
+        "Mei Tanaka",
+        "Alex Morgan",
+        "Priya Shah"
+      ],
+      "transcript": [
+        [
+          "Lena Fischer",
+          "00:00",
+          "Thanks for joining. Today I want to walk you through the redesigned dispatch board and get feedback before we lock the scope. I'll share my screen. The main change is that we're moving from a list of jobs to a timeline view."
+        ],
+        [
+          "Lena Fischer",
+          "00:41",
+          "Each row is a technician, time runs from left to right across the working day, and every job is a block on the timeline. Dispatchers can drag a block to another time or another technician to reassign it. Unassigned jobs sit in a tray on the left, sorted by urgency."
+        ],
+        [
+          "Alex Morgan",
+          "01:26",
+          "This is a big improvement already. In the customer interviews, every dispatcher drew something like this on a whiteboard."
+        ],
+        [
+          "Lena Fischer",
+          "01:52",
+          "That's exactly where it came from. The second change is status colors. Scheduled is grey, en route is blue, on site is purple, done is green, and anything at risk of missing its SLA turns orange with a countdown."
+        ],
+        [
+          "Alex Morgan",
+          "02:31",
+          "I love the countdown. My one worry is that at-risk jobs still blend in when the board is busy. On a day with sixty technicians, I'm not sure an orange block would jump out."
+        ],
+        [
+          "Lena Fischer",
+          "03:06",
+          "Fair point. One option is to pin at-risk jobs into a strip at the top of the board, so they're visible without scrolling. Another is a subtle pulse on the block when it's within thirty minutes of breaching."
+        ],
+        [
+          "Priya Shah",
+          "03:44",
+          "The pinned strip sounds more useful than animation. Dispatchers will have this open all day, and anything that moves constantly gets tiring."
+        ],
+        [
+          "Alex Morgan",
+          "04:12",
+          "Agreed, let's go with the pinned strip and skip the pulse."
+        ],
+        [
+          "Mei Tanaka",
+          "04:33",
+          "From the engineering side, my main concern is performance. Sixty technicians with maybe ten jobs each is six hundred blocks, plus drag-and-drop, plus live updates. If we render everything naively, scrolling will be janky on the laptops dispatchers use."
+        ],
+        [
+          "Lena Fischer",
+          "05:12",
+          "What would you need from the design to make that easier?"
+        ],
+        [
+          "Mei Tanaka",
+          "05:33",
+          "Mostly predictable sizes. If every row has a fixed height, we can virtualize the rows and only render what's on screen. Variable row heights make that much harder."
+        ],
+        [
+          "Lena Fischer",
+          "06:04",
+          "Fixed heights are fine. I'll make overlapping jobs stack inside the row instead of growing it."
+        ],
+        [
+          "Mei Tanaka",
+          "06:28",
+          "Perfect. I'll build a quick prototype with six hundred jobs and measure the frame rate while dragging, so we know before we commit."
+        ],
+        [
+          "Priya Shah",
+          "06:57",
+          "Let's talk scope for the first release. I'd suggest the timeline, drag to reassign and the at-risk strip. Multi-select and bulk moves can come later."
+        ],
+        [
+          "Alex Morgan",
+          "07:27",
+          "I'm fine with that, as long as dispatchers can still assign the unassigned tray quickly. That's where they spend most of their mornings."
+        ],
+        [
+          "Lena Fischer",
+          "07:55",
+          "Then I'll add keyboard shortcuts for assigning from the tray. Select a job, press a number to send it to a technician in view."
+        ],
+        [
+          "Priya Shah",
+          "08:24",
+          "And live updates? Do we need them in the first version?"
+        ],
+        [
+          "Mei Tanaka",
+          "08:45",
+          "We can start with polling every fifteen seconds and move to websockets later. For the first release, polling is simpler and good enough."
+        ],
+        [
+          "Lena Fischer",
+          "09:14",
+          "Next, accessibility. I checked the status colors against contrast guidelines and two of them fail, the blue and the grey on white. Color alone also isn't enough, because about one in twelve men has some form of color blindness."
+        ],
+        [
+          "Alex Morgan",
+          "09:53",
+          "So what's the fix?"
+        ],
+        [
+          "Lena Fischer",
+          "10:09",
+          "Darker shades for the failing colors, and a small icon on every block: a clock for scheduled, a car for en route and so on. Then status is readable even in grayscale."
+        ],
+        [
+          "Priya Shah",
+          "10:43",
+          "Good. Dragging also needs a keyboard alternative, otherwise the board isn't usable without a mouse."
+        ],
+        [
+          "Lena Fischer",
+          "11:07",
+          "Yes, the shortcuts I mentioned cover that. You can move a selected job with the arrow keys and confirm with enter."
+        ],
+        [
+          "Lena Fischer",
+          "11:34",
+          "Last part, empty and loading states. When a dispatcher opens the board before any jobs are scheduled, we show the tray with a short tip instead of an empty grid. While data loads, we show skeleton rows instead of a spinner."
+        ],
+        [
+          "Alex Morgan",
+          "12:14",
+          "What about supervisors on tablets? A few customers mentioned that field supervisors check the board from their trucks."
+        ],
+        [
+          "Lena Fischer",
+          "12:39",
+          "For tablets I'd show a read-only version of the timeline, focused on one region. Editing stays on desktop for now."
+        ],
+        [
+          "Priya Shah",
+          "13:06",
+          "That keeps the scope sane. So decisions: timeline view with fixed row heights, pinned at-risk strip, icons plus darker status colors, keyboard shortcuts, polling for updates, and read-only on tablets."
+        ],
+        [
+          "Alex Morgan",
+          "13:39",
+          "And before we build all of it, I'd like to put the prototype in front of real dispatchers. I'll recruit five dispatchers from our customers for usability tests, ideally by Friday."
+        ],
+        [
+          "Lena Fischer",
+          "14:12",
+          "Great. I'll update the colors and icons and have the clickable prototype ready for those sessions."
+        ],
+        [
+          "Priya Shah",
+          "14:37",
+          "I'll break the scope into tickets for sprint 43 once Mei's performance numbers are in."
+        ],
+        [
+          "Mei Tanaka",
+          "15:00",
+          "I should have them by Monday."
+        ],
+        [
+          "Lena Fischer",
+          "15:18",
+          "Thanks everyone, this was really useful."
+        ]
+      ],
+      "summary": {
+        "overview": "Lena walked the team through the redesigned dispatch board, which replaces the job list with a timeline (technicians as rows, drag to reassign, an unassigned tray sorted by urgency) and adds status colors with an SLA countdown. The team chose a pinned strip for at-risk jobs over animation, fixed row heights so Mei can virtualize rendering, polling before websockets, and darker colors plus icons and keyboard shortcuts for accessibility. The first release covers the timeline, drag to reassign and the at-risk strip; tablets get a read-only view.",
+        "keywords": [
+          "dispatch board",
+          "timeline",
+          "at-risk jobs",
+          "accessibility",
+          "performance",
+          "usability testing"
+        ]
+      },
+      "chapters": [
+        [
+          "00:00",
+          "Timeline view walkthrough"
+        ],
+        [
+          "01:52",
+          "Status colors and at-risk jobs"
+        ],
+        [
+          "04:33",
+          "Performance and virtualized rows"
+        ],
+        [
+          "06:57",
+          "Scope for the first release"
+        ],
+        [
+          "09:14",
+          "Accessibility"
+        ],
+        [
+          "11:34",
+          "Empty states, tablets and decisions"
+        ]
+      ],
+      "action_items": [
+        {
+          "text": "Update the status colors for contrast and add an icon to every job block",
+          "assignee": "Lena Fischer",
+          "at": "14:12",
+          "done": true
+        },
+        {
+          "text": "Prototype the virtualized timeline with 600 jobs and measure the frame rate while dragging",
+          "assignee": "Mei Tanaka",
+          "at": "06:28",
+          "done": false
+        },
+        {
+          "text": "Recruit five dispatchers for usability tests",
+          "assignee": "Alex Morgan",
+          "at": "13:39",
+          "done": false
+        },
+        {
+          "text": "Break the first-release scope into tickets for sprint 43",
+          "assignee": "Priya Shah",
+          "at": "14:37",
+          "done": false
+        }
+      ]
+    },
+    {
+      "title": "1:1 Alex / Lena",
+      "date": "2026-10-01T11:30:00Z",
+      "duration": "15:47",
+      "participants": [
+        "Alex Morgan",
+        "Lena Fischer"
+      ],
+      "transcript": [
+        [
+          "Alex Morgan",
+          "00:00",
+          "Hey Lena, how are you doing? How was the week?"
+        ],
+        [
+          "Lena Fischer",
+          "00:21",
+          "Pretty good, thanks. Busy, but a good kind of busy. The onboarding redesign went out on Monday, and it's been nice to see it in the wild."
+        ],
+        [
+          "Alex Morgan",
+          "00:53",
+          "Congratulations, it's a real win. I looked at the numbers this morning. Activation within the first week went from forty-one to fifty-three percent for new accounts. That's the biggest jump we've had all year."
+        ],
+        [
+          "Lena Fischer",
+          "01:30",
+          "That's amazing to hear. A lot of the credit goes to the research. Those five customer calls changed the whole flow, especially moving technician invites to the very first step."
+        ],
+        [
+          "Alex Morgan",
+          "02:04",
+          "Agreed, and I'd love for the rest of the team to see how you ran that research. Could you share your synthesis template so other people can reuse it?"
+        ],
+        [
+          "Lena Fischer",
+          "02:37",
+          "Sure, I'll clean it up and post it in the product channel."
+        ],
+        [
+          "Alex Morgan",
+          "03:00",
+          "Great. How's your workload feeling right now? Honestly."
+        ],
+        [
+          "Lena Fischer",
+          "03:20",
+          "Honestly, it's a bit much. The dispatch board redesign is the main project, but I keep getting small requests from sales, like a slide for a prospect or a quick mockup of a feature they promised. Each one is only an hour, but together they eat almost a day a week."
+        ],
+        [
+          "Alex Morgan",
+          "04:07",
+          "That's not okay, and it's on me to fix. Those requests should come through one place where we can prioritize them, not as direct messages to you."
+        ],
+        [
+          "Alex Morgan",
+          "04:39",
+          "Let me set up a simple intake process with sales. A form, a weekly review, and anything urgent goes through me. That way you can protect your focus time."
+        ],
+        [
+          "Lena Fischer",
+          "05:12",
+          "That would help a lot. I don't mind the requests, I just want them to be visible and planned."
+        ],
+        [
+          "Alex Morgan",
+          "05:39",
+          "Is anything else adding to the load? Any recurring meetings you could drop?"
+        ],
+        [
+          "Lena Fischer",
+          "06:03",
+          "Probably the weekly sales sync. Once the intake form exists, I don't need to sit in that meeting to catch requests."
+        ],
+        [
+          "Alex Morgan",
+          "06:31",
+          "Then drop it from next week. I'll let the sales team know it was my call."
+        ],
+        [
+          "Alex Morgan",
+          "06:56",
+          "Let's talk about growth. Last time you mentioned you'd like to take on more ownership. Have you thought more about what that looks like?"
+        ],
+        [
+          "Lena Fischer",
+          "07:26",
+          "I have. I'd really like to lead our design system. Right now every screen reinvents buttons and spacing, and engineers keep asking me which version is correct. A proper system would save everyone time, and it's the kind of work I want to be known for."
+        ],
+        [
+          "Alex Morgan",
+          "08:10",
+          "I think that's a great fit, and it's a clear step towards a senior role. What would you need to make it happen?"
+        ],
+        [
+          "Lena Fischer",
+          "08:40",
+          "Mostly time and an engineering partner. Maybe twenty percent of my time for a quarter, and someone like Mei to help build the components."
+        ],
+        [
+          "Alex Morgan",
+          "09:10",
+          "Let's make it concrete. Could you draft a proposal with the scope, a timeline and what you'd need from engineering? Then I can take it to Priya and we can plan it into Q4."
+        ],
+        [
+          "Lena Fischer",
+          "09:46",
+          "Yes, I'll draft a design system proposal over the next two weeks."
+        ],
+        [
+          "Alex Morgan",
+          "10:09",
+          "Perfect. Now feedback, both ways. One thing I'd love to see more of is sharing work earlier. The dispatch board review went well, but I think we could have caught the performance question a week earlier if Mei had seen rough sketches."
+        ],
+        [
+          "Lena Fischer",
+          "10:50",
+          "That's fair. I tend to wait until things look polished. I'll start sharing rough work in the channel on Fridays."
+        ],
+        [
+          "Alex Morgan",
+          "11:18",
+          "That would be great. And how can I support you better?"
+        ],
+        [
+          "Lena Fischer",
+          "11:40",
+          "More context on the business side. Sometimes I hear about a customer deal for the first time when a feature gets prioritized. If I knew earlier, I could plan the research."
+        ],
+        [
+          "Alex Morgan",
+          "12:15",
+          "Good feedback. I'll start including you in the monthly pipeline review with sales, so you see what's coming."
+        ],
+        [
+          "Lena Fischer",
+          "12:41",
+          "Thank you. Oh, and one more thing. I submitted a talk proposal to a design conference in March, about designing for people who work in the field. Would you mind reviewing the abstract?"
+        ],
+        [
+          "Alex Morgan",
+          "13:17",
+          "I'd love to. Send it over and I'll review it by Tuesday."
+        ],
+        [
+          "Lena Fischer",
+          "13:39",
+          "Great. Last thing, I'm planning to take a week off in late November, probably the week of the twenty-third."
+        ],
+        [
+          "Alex Morgan",
+          "14:06",
+          "Of course. Put it in the calendar and let's make sure the dispatch board work is handed over before then."
+        ],
+        [
+          "Lena Fischer",
+          "14:34",
+          "Will do. That's everything from me."
+        ],
+        [
+          "Alex Morgan",
+          "14:53",
+          "Thanks Lena. Really proud of the onboarding work, and excited about the design system. Same time next week?"
+        ],
+        [
+          "Lena Fischer",
+          "15:19",
+          "Same time next week."
+        ]
+      ],
+      "summary": {
+        "overview": "Alex and Lena celebrated the onboarding redesign, which lifted first-week activation from 41% to 53%. Lena flagged that ad-hoc requests from sales take almost a day a week, so Alex will set up an intake process with sales and Lena will stop attending the weekly sales sync. Lena wants to lead the design system as a step towards a senior role and will draft a proposal; they also agreed she will share rough work earlier and join the monthly pipeline review, and Alex will review her conference talk abstract.",
+        "keywords": [
+          "onboarding",
+          "activation",
+          "workload",
+          "design system",
+          "feedback",
+          "conference talk"
+        ]
+      },
+      "chapters": [
+        [
+          "00:00",
+          "Check-in and the onboarding win"
+        ],
+        [
+          "03:00",
+          "Workload and requests from sales"
+        ],
+        [
+          "06:56",
+          "Growth: leading the design system"
+        ],
+        [
+          "10:09",
+          "Feedback both ways"
+        ],
+        [
+          "12:41",
+          "Conference talk and time off"
+        ]
+      ],
+      "action_items": [
+        {
+          "text": "Set up an intake process for design requests from sales",
+          "assignee": "Alex Morgan",
+          "at": "04:39",
+          "done": true
+        },
+        {
+          "text": "Draft a design system proposal with scope, timeline and engineering needs",
+          "assignee": "Lena Fischer",
+          "at": "09:46",
+          "done": false
+        },
+        {
+          "text": "Review Lena's conference talk abstract",
+          "assignee": "Alex Morgan",
+          "at": "13:17",
+          "done": true
+        },
+        {
+          "text": "Share the research synthesis template in the product channel",
+          "assignee": "Lena Fischer",
+          "at": "02:37",
+          "done": false
+        }
+      ]
+    },
+    {
+      "title": "Q3 investor update",
+      "date": "2026-10-02T14:00:00Z",
+      "duration": "17:07",
+      "participants": [
+        "Ravi Menon",
+        "Claire Dubois",
+        "Alex Morgan"
+      ],
+      "transcript": [
+        [
+          "Ravi Menon",
+          "00:00",
+          "Hi Claire, thanks for making time on a Friday evening. I've brought Alex along since a good part of today is product. The plan is to go through the Q3 numbers, then product and hiring, then our priorities for Q4, and we'll leave time for your questions and a couple of asks."
+        ],
+        [
+          "Claire Dubois",
+          "00:43",
+          "Perfect. I've read the memo you sent on Wednesday, so feel free to go quickly over the headline numbers and spend more time on what's behind them."
+        ],
+        [
+          "Ravi Menon",
+          "01:11",
+          "Great. Headline numbers first. We ended Q3 at two point four million in annual recurring revenue, up eighteen percent quarter on quarter. We added nineteen net new customers, so we're at a hundred and twelve, and average contract value went up as well because more customers are on the business plan."
+        ],
+        [
+          "Ravi Menon",
+          "01:54",
+          "Net revenue retention was a hundred and twelve percent, mostly from customers adding technicians as they grow. Gross churn was two point one percent for the quarter, which is better than Q2 but still above where I want it."
+        ],
+        [
+          "Claire Dubois",
+          "02:29",
+          "Let's dig into churn. Who is leaving, and why?"
+        ],
+        [
+          "Ravi Menon",
+          "02:47",
+          "Almost all of it is small HVAC and plumbing shops with fewer than ten technicians. They sign up, they like the mobile app, but they never really change how they dispatch, so after a few months they decide spreadsheets are good enough."
+        ],
+        [
+          "Alex Morgan",
+          "03:24",
+          "We see it in the product data too. Small accounts that don't schedule at least twenty jobs in their first two weeks almost never stick around. That's exactly what the onboarding redesign targeted, and first-week activation went from forty-one to fifty-three percent since it shipped."
+        ],
+        [
+          "Claire Dubois",
+          "04:03",
+          "That's encouraging. Are you considering a different plan for very small shops, or even stopping selling to them?"
+        ],
+        [
+          "Ravi Menon",
+          "04:26",
+          "We're not going to stop, they're a big part of our word of mouth. But we're testing a simpler starter plan with self-serve onboarding, so they cost us less to acquire and support."
+        ],
+        [
+          "Claire Dubois",
+          "04:58",
+          "Makes sense. What about burn and runway?"
+        ],
+        [
+          "Ravi Menon",
+          "05:14",
+          "Net burn averaged three hundred and ten thousand a month in Q3, slightly under plan because two hires started later than expected. With the cash in the bank that gives us about twenty-two months of runway at the current plan."
+        ],
+        [
+          "Claire Dubois",
+          "05:50",
+          "Good, that gives you room. Alex, what shipped this quarter?"
+        ],
+        [
+          "Alex Morgan",
+          "06:08",
+          "Three things worth highlighting. First, the onboarding redesign we just talked about. Second, our public API and webhooks, which eleven customers already use to connect their maintenance and accounting systems. Third, the offline mode for the technician app, which goes into beta with three pilot customers this month."
+        ],
+        [
+          "Alex Morgan",
+          "06:49",
+          "Offline mode matters more than it sounds. Technicians in basements and rural sites lose signal, and that has come up in almost every larger deal. One prospect, Coastline Facilities with sixty technicians, has told us it's critical for them."
+        ],
+        [
+          "Claire Dubois",
+          "07:24",
+          "How big is the Coastline opportunity?"
+        ],
+        [
+          "Ravi Menon",
+          "07:40",
+          "At full rollout it would be our third largest customer. They want a fifteen technician pilot in November and a full rollout in January, so it could land in Q1."
+        ],
+        [
+          "Claire Dubois",
+          "08:10",
+          "And the dispatch board work I saw in the memo?"
+        ],
+        [
+          "Alex Morgan",
+          "08:28",
+          "That's the redesign of the screen dispatchers use all day. We're moving to a timeline view with drag and drop and much clearer alerts for jobs that are about to miss their service levels. We'll test it with five dispatchers this month and aim to ship it in Q4."
+        ],
+        [
+          "Claire Dubois",
+          "09:09",
+          "Good. Let's talk about the team. How is hiring going?"
+        ],
+        [
+          "Ravi Menon",
+          "09:27",
+          "We hired two engineers and a customer success manager this quarter, and we're at twenty-six people. The open role I'm most worried about is a head of sales. Jordan is doing a great job on the larger deals, but we need someone to build the team as we move upmarket."
+        ],
+        [
+          "Claire Dubois",
+          "10:09",
+          "I agree that's the critical hire. Have you written the job description yet?"
+        ],
+        [
+          "Ravi Menon",
+          "10:29",
+          "I have a rough draft. I'll clean it up and send it to you next week, and I'd really value your input on the profile."
+        ],
+        [
+          "Claire Dubois",
+          "10:56",
+          "Happy to review it. We've placed a few sales leaders across the portfolio, so I can also share what worked and what didn't."
+        ],
+        [
+          "Ravi Menon",
+          "11:22",
+          "That would be great. On to Q4 priorities. There are three. First, land the Coastline pilot and two other mid-market pilots. Second, ship offline mode to everyone and the new dispatch board. Third, bring gross churn below one point five percent with the starter plan."
+        ],
+        [
+          "Claire Dubois",
+          "12:01",
+          "That's a focused list, I like it. What about AI features? Every board I sit on is asking about it."
+        ],
+        [
+          "Alex Morgan",
+          "12:25",
+          "We get asked too. The most useful idea so far is route suggestions, recommending the order of jobs to minimize driving. We're running a two day technical spike next sprint to estimate it, and I'll have a clearer answer by the end of October."
+        ],
+        [
+          "Claire Dubois",
+          "13:03",
+          "I'd rather see you do one useful thing well than add AI to every screen. Let me know what the spike finds."
+        ],
+        [
+          "Ravi Menon",
+          "13:28",
+          "Will do. Now the asks. We have two. First, introductions to facility management operators in your network, especially companies with more than fifty technicians."
+        ],
+        [
+          "Claire Dubois",
+          "13:55",
+          "I can think of three right away. I'll make intros to the CEOs of three facility management companies next week."
+        ],
+        [
+          "Ravi Menon",
+          "14:19",
+          "Thank you. The second ask is the head of sales search. If you know strong candidates, especially people who've sold to operations teams, please send them our way."
+        ],
+        [
+          "Claire Dubois",
+          "14:47",
+          "Will do. Anything else you need from me before the board meeting?"
+        ],
+        [
+          "Ravi Menon",
+          "15:07",
+          "Just a heads up that I'll send the board deck and the full metrics pack by Monday, so you have time to read it before the meeting."
+        ],
+        [
+          "Alex Morgan",
+          "15:35",
+          "And I'll share a one-page product roadmap for Q4 and Q1, so the board can see how the pieces fit together."
+        ],
+        [
+          "Claire Dubois",
+          "15:59",
+          "Great. Overall this was a strong quarter. Retention is healthy, the product story is clear, and churn is the one number I'd watch."
+        ],
+        [
+          "Ravi Menon",
+          "16:25",
+          "Agreed. Thanks again, Claire. Have a good weekend."
+        ],
+        [
+          "Claire Dubois",
+          "16:42",
+          "You too. Talk soon."
+        ]
+      ],
+      "summary": {
+        "overview": "Ravi and Alex gave Claire the Q3 update: ARR reached $2.4M (up 18% quarter on quarter), 112 customers, net revenue retention of 112% and gross churn of 2.1%, almost all from shops with fewer than ten technicians. Net burn averaged about $310k a month, leaving roughly 22 months of runway. Product shipped the onboarding redesign (first-week activation up from 41% to 53%) and a public API with webhooks, and offline mode goes into beta this month with a 60-technician Coastline pilot in the pipeline. Q4 priorities are three mid-market pilots, shipping offline mode and the new dispatch board, and bringing churn below 1.5% with a starter plan.",
+        "keywords": [
+          "ARR",
+          "churn",
+          "runway",
+          "offline mode",
+          "head of sales",
+          "Q4 priorities"
+        ]
+      },
+      "chapters": [
+        [
+          "00:00",
+          "Q3 metrics: ARR, retention and churn"
+        ],
+        [
+          "02:29",
+          "Why small shops churn"
+        ],
+        [
+          "04:58",
+          "Burn, runway and product launches"
+        ],
+        [
+          "09:09",
+          "Hiring and the head of sales search"
+        ],
+        [
+          "11:22",
+          "Q4 priorities and AI features"
+        ],
+        [
+          "13:28",
+          "Asks and next steps"
+        ]
+      ],
+      "action_items": [
+        {
+          "text": "Send the board deck and the full metrics pack",
+          "assignee": "Ravi Menon",
+          "at": "15:07",
+          "done": true
+        },
+        {
+          "text": "Introduce Kestrel to the CEOs of three facility management companies",
+          "assignee": "Claire Dubois",
+          "at": "13:55",
+          "done": false
+        },
+        {
+          "text": "Share a one-page product roadmap for Q4 and Q1",
+          "assignee": "Alex Morgan",
+          "at": "15:35",
+          "done": false
+        },
+        {
+          "text": "Send the head of sales job description to Claire for review",
+          "assignee": "Ravi Menon",
+          "at": "10:29",
+          "done": false
+        },
+        {
+          "text": "Share the results of the route suggestions spike",
+          "assignee": "Alex Morgan",
+          "at": "12:25",
+          "done": false
+        }
+      ]
+    },
+    {
+      "title": "Escalation: Summit Plumbing sync failures",
+      "date": "2026-09-30T15:30:00Z",
+      "duration": "15:58",
+      "participants": [
+        "Tom Becker",
+        "Nadia Hassan",
+        "Daniel Okafor",
+        "Sam Rivera"
+      ],
+      "transcript": [
+        [
+          "Tom Becker",
+          "00:00",
+          "Hi Nadia, thank you for jumping on so quickly. I'm Tom, I lead support at Kestrel. I've got Daniel from our engineering team and Sam, who leads QA, so we can get you real answers today. Could you start by walking us through what your technicians are seeing?"
+        ],
+        [
+          "Nadia Hassan",
+          "00:43",
+          "Sure. Since Monday, after the app updated on the technicians' phones, new jobs just stop showing up. The app opens, it looks normal, but the job list is stuck on whatever was there in the morning. Our dispatchers assign a job and the technician never sees it."
+        ],
+        [
+          "Nadia Hassan",
+          "01:26",
+          "Twenty-five of our forty technicians are affected. Yesterday alone we missed nine appointments, and two of those were emergency calls for burst pipes. I had customers calling me directly, and they were not happy."
+        ],
+        [
+          "Tom Becker",
+          "02:00",
+          "I'm really sorry, Nadia. That's a serious impact on your business and your customers, and we should have caught this before it reached you. Our goal for this call is to explain what happened, get your technicians working again today and agree on how we keep you updated."
+        ],
+        [
+          "Daniel Okafor",
+          "02:44",
+          "Let me explain what we found. Version 4.12 of the app changed how we refresh login tokens. When a token is refreshed, the server issues a new one, and the app is supposed to store it. On some Android phones the new token wasn't being saved, so the next sync quietly fails."
+        ],
+        [
+          "Daniel Okafor",
+          "03:30",
+          "The worst part is that it fails silently. The app keeps showing the last jobs it downloaded instead of telling the technician that sync is broken. That's why your team didn't realize anything was wrong until jobs were missed."
+        ],
+        [
+          "Nadia Hassan",
+          "04:07",
+          "Why only some phones? Most of our technicians have the same model."
+        ],
+        [
+          "Sam Rivera",
+          "04:28",
+          "It depends on whether the phone was locked when the refresh happened. If the app was in the background with the screen off, Android blocked the write to secure storage. I reproduced it this afternoon on the same model your team uses."
+        ],
+        [
+          "Nadia Hassan",
+          "05:07",
+          "Okay. So what do my technicians do right now?"
+        ],
+        [
+          "Daniel Okafor",
+          "05:26",
+          "The immediate workaround is to log out of the app and log back in. That creates a fresh token, and sync starts working again straight away. It takes about thirty seconds per phone."
+        ],
+        [
+          "Nadia Hassan",
+          "06:00",
+          "I can get that done today. I'll ask every technician to log out and back in before their afternoon jobs."
+        ],
+        [
+          "Tom Becker",
+          "06:26",
+          "Thank you. I'll send you a short message you can forward to the technicians with screenshots, so it's quick for them."
+        ],
+        [
+          "Nadia Hassan",
+          "06:52",
+          "That would help. But logging out isn't a fix. Will this happen again tomorrow?"
+        ],
+        [
+          "Daniel Okafor",
+          "07:14",
+          "It can happen again when the token refreshes, which is roughly every few days. So the real fix is version 4.12.1, which stores the token correctly and also shows a clear warning if sync fails for more than ten minutes. It's built and tested, and I'll release it to the Play Store tonight."
+        ],
+        [
+          "Sam Rivera",
+          "08:00",
+          "I've also added an automated test that rotates the token while the phone is locked, and it's now part of our release checklist. This exact bug can't slip through again without the test failing."
+        ],
+        [
+          "Nadia Hassan",
+          "08:35",
+          "How long before the update reaches the phones?"
+        ],
+        [
+          "Daniel Okafor",
+          "08:53",
+          "Play Store review is usually a few hours. Once it's live, phones that have auto-update on will pick it up within a day. If your phones are managed, your IT team can push it straight away."
+        ],
+        [
+          "Nadia Hassan",
+          "09:28",
+          "Our phones are managed, so I'll ask our IT contractor to push it as soon as it's available."
+        ],
+        [
+          "Tom Becker",
+          "09:53",
+          "Then here's what I suggest for communication. I'll post updates on our status page, and I'll check in with you every day until we've confirmed all twenty-five technicians are on the new version and syncing."
+        ],
+        [
+          "Nadia Hassan",
+          "10:28",
+          "Daily check-ins work. I also need something in writing I can share with my boss and with the customers who were affected."
+        ],
+        [
+          "Tom Becker",
+          "10:55",
+          "Of course. I'll send you a written incident report by Friday, covering what happened, the timeline, the root cause and what we're changing so it doesn't happen again."
+        ],
+        [
+          "Nadia Hassan",
+          "11:25",
+          "Thank you. And frankly, we lost real money this week. Nine missed appointments, plus overtime to catch up."
+        ],
+        [
+          "Tom Becker",
+          "11:50",
+          "You're right, and we want to make that right. I'm applying a service credit for one full month to your account, and I'll confirm it in the incident report."
+        ],
+        [
+          "Nadia Hassan",
+          "12:21",
+          "I appreciate that. It doesn't fix the customers who were upset, but it helps."
+        ],
+        [
+          "Tom Becker",
+          "12:43",
+          "Understood. If any of those customers want to hear from us directly, I'm happy to join a call or write a short note explaining what happened."
+        ],
+        [
+          "Nadia Hassan",
+          "13:12",
+          "Let me think about that. For now, I mostly want to know this is fixed."
+        ],
+        [
+          "Daniel Okafor",
+          "13:35",
+          "One more thing from our side. We're adding monitoring on the server for accounts where phones stop syncing, so next time we'll see it before your dispatchers do."
+        ],
+        [
+          "Nadia Hassan",
+          "14:06",
+          "That's what I wanted to hear. Finding out from us that your app is broken shouldn't be how you learn about it."
+        ],
+        [
+          "Tom Becker",
+          "14:32",
+          "Completely agree. To recap: technicians log out and back in today, Daniel releases 4.12.1 tonight, your IT team pushes it, I send the incident report by Friday and the service credit is applied. We'll check in daily until everything is confirmed."
+        ],
+        [
+          "Nadia Hassan",
+          "15:11",
+          "Yes, that's everything. Thanks for taking this seriously."
+        ],
+        [
+          "Tom Becker",
+          "15:29",
+          "Thank you for your patience, Nadia. Talk tomorrow."
+        ]
+      ],
+      "summary": {
+        "overview": "Summit Plumbing & Heating escalated that since Monday's app update, new jobs stopped reaching 25 of their 40 technicians, causing nine missed appointments including two emergencies. Daniel traced it to version 4.12: on some Android phones the refreshed login token wasn't saved while the phone was locked, so sync failed silently. The workaround is to log out and back in; version 4.12.1 stores the token correctly and warns when sync fails, and Sam added a regression test to the release checklist. Tom committed to daily check-ins, a written incident report by Friday and a one-month service credit.",
+        "keywords": [
+          "sync failure",
+          "token refresh",
+          "hotfix",
+          "incident report",
+          "service credit",
+          "monitoring"
+        ]
+      },
+      "chapters": [
+        [
+          "00:00",
+          "What technicians are seeing"
+        ],
+        [
+          "02:44",
+          "Root cause: token refresh in 4.12"
+        ],
+        [
+          "05:07",
+          "Workaround for today"
+        ],
+        [
+          "06:52",
+          "The fix: version 4.12.1"
+        ],
+        [
+          "09:53",
+          "Incident report and service credit"
+        ],
+        [
+          "13:35",
+          "Monitoring and recap"
+        ]
+      ],
+      "action_items": [
+        {
+          "text": "Release version 4.12.1 to the Play Store",
+          "assignee": "Daniel Okafor",
+          "at": "07:14",
+          "done": true
+        },
+        {
+          "text": "Ask every technician to log out and back in before their afternoon jobs",
+          "assignee": "Nadia Hassan",
+          "at": "06:00",
+          "done": true
+        },
+        {
+          "text": "Send a written incident report",
+          "assignee": "Tom Becker",
+          "at": "10:55",
+          "done": true
+        },
+        {
+          "text": "Apply a one-month service credit to Summit's account",
+          "assignee": "Tom Becker",
+          "at": "11:50",
+          "done": false
+        },
+        {
+          "text": "Add a locked-phone token rotation test to the release checklist",
+          "assignee": "Sam Rivera",
+          "at": "08:00",
+          "done": true
+        },
+        {
+          "text": "Add server monitoring for accounts whose phones stop syncing",
+          "assignee": "Daniel Okafor",
+          "at": "13:35",
+          "done": false
+        }
+      ]
+    }
+  ]
+}

@@ -8,15 +8,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from app.config import settings
-from app.database import init_db
+from app.database import SessionLocal, init_db
 from app.errors import register_exception_handlers
 from app.routers import action_items, health, meetings, participants
+from app.seed.seed import seed_if_empty
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    # Runs once when the server starts: create any missing tables.
+    # Runs once when the server starts: create any missing tables, then seed an empty database.
     init_db()
+    with SessionLocal() as db:
+        seed_if_empty(db)
     yield
 
 
