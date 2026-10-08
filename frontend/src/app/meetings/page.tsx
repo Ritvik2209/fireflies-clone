@@ -1,21 +1,23 @@
-import { Video } from "lucide-react";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
-import { ApiStatus } from "@/components/layout/ApiStatus";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { MeetingListSkeleton } from "@/components/meetings/MeetingList";
+import { MeetingsLibrary } from "@/components/meetings/MeetingsLibrary";
 
 export const metadata: Metadata = { title: "Meetings" };
 
 export default function MeetingsPage() {
+  // The library reads the URL (useSearchParams), so it renders in the browser; the skeleton is
+  // what the prerendered HTML shows until then.
   return (
-    <div className="px-8 py-6">
-      <EmptyState
-        icon={Video}
-        title="No meetings yet"
-        description="Meetings you upload or paste in will appear here, newest first."
-      >
-        <ApiStatus />
-      </EmptyState>
-    </div>
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-5xl px-8 py-6">
+          <MeetingListSkeleton />
+        </div>
+      }
+    >
+      <MeetingsLibrary />
+    </Suspense>
   );
 }
