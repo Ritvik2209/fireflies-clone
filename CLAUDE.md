@@ -107,6 +107,8 @@ backend/app/
   seed/            seed_data.json + seed.py
 backend/samples/   demo upload files in all three formats
 backend/tests/     pytest: parsers, summary generator, key endpoints
+backend/requirements.txt / requirements-dev.txt   runtime deps (installed on Render) / + pytest, httpx, ruff
+backend/pyproject.toml                            ruff + pytest config
 frontend/src/
   app/             routes: /meetings, /meetings/[id], /search, /settings, /integrations, /team, /record
   components/      layout/, meetings/, meeting-detail/, ui/ (see ARCHITECTURE.md §3)
@@ -123,7 +125,8 @@ frontend/src/
 ## Design decisions (keep consistent; append new ones)
 
 - **Time:** times inside a meeting are integer **milliseconds** from its start. Datetimes are stored in UTC, and the API always serialises them with a UTC offset (`Z`) so browsers convert them to local time correctly. The frontend sends UTC ISO strings.
-- **Default user:** seeded; `get_current_user()` returns it; every service query is scoped by `owner_id`. Another user's meeting → 404. Annotations and chat messages record their author in `user_id`.
+- **Default user:** Alex Morgan `<alex.morgan@example.com>`, avatar colour `indigo` (shown by `frontend/src/lib/currentUser.ts`; the backend seed must match). `get_current_user()` returns it; every service query is scoped by `owner_id`. Another user's meeting → 404. Annotations and chat messages record their author in `user_id`.
+- **Next.js 16.4** (Turbopack; Tailwind v4 through its Turbopack loader). Cache Components is **off** (all data is fetched client-side). Next's own `frontend/AGENTS.md` says APIs changed since training data: read `frontend/node_modules/next/dist/docs/` before using a Next API you're unsure of.
 - **Layers:** routers → services (business rules, `db.commit()`) → models. Parsers and the summary generator are pure functions with no DB access. `llm/` knows the SDK but not the database.
 - **Errors:** JSON `{"detail": "<message>"}` everywhere (validation errors add an `errors` list). Codes: 200; 201 (POST returns the created resource); 204 (DELETE); 404; 409 (duplicate tag name, or removing a participant who speaks in the meeting's transcript); 422 (invalid input, unparseable transcript); 429 (chat rate limit).
 - **SQLite:** `PRAGMA foreign_keys=ON` via an engine `connect` event; `check_same_thread=False`; `Base.metadata.create_all()` at startup (no Alembic, a documented trade-off); seed when the DB is empty.
@@ -188,7 +191,7 @@ Backend, from `backend/`:
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1           # macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt  # runtime deps + pytest, httpx, ruff
 uvicorn app.main:app --reload        # API on http://localhost:8000, docs at /docs
 pytest
 ruff check . ; ruff format .
@@ -197,12 +200,16 @@ ruff check . ; ruff format .
 Frontend, from `frontend/`:
 ```powershell
 npm install
-npm run dev                          # http://localhost:3000
+npm run dev -- -p 3001               # http://localhost:3001 (port 3000 is taken on the dev machine)
 npm run lint
-npm run build
+npm run format                       # Prettier; format:check in CI style
+npm run build                        # also type-checks
 ```
 
 ## Known gotchas
+
+- **Dev machine:** port 3000 belongs to Docker (a Grafana container). Never stop it; run the frontend on **3001** (the backend's local CORS default allows 3000 and 3001). Windows PowerShell's `Invoke-WebRequest` to `localhost` is very slow; use `curl` (Git Bash).
+- **Visual checks:** take headless screenshots and compare them with `docs/reference/`: `"/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" --headless=new --disable-gpu --hide-scrollbars --user-data-dir=<scratch>/edge-profile --window-size=1440,900 --virtual-time-budget=8000 --screenshot=<file>.png http://localhost:3001/<page>`.
 
 - **New tables or seed data:** `create_all()` creates missing tables on startup but never alters existing ones, and seed data only loads into an empty DB. Locally, delete `backend/app.db`; on Render every deploy starts from a fresh disk. Tell the owner whenever a phase needs this.
 - **FTS5:** verify early (Phase 1) that Render's Python has it (it does locally, on SQLite 3.42). When the FTS table is added to an existing DB, run `INSERT INTO segments_fts(segments_fts) VALUES('rebuild')` at startup so rows that already exist get indexed.

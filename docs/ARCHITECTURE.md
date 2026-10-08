@@ -34,7 +34,7 @@ flowchart LR
 
 | Concern | Choice | Why |
 |---|---|---|
-| UI framework | Next.js App Router + TypeScript (strict) | Fixed by the brief. File-based routes, and one root layout renders the sidebar and top bar for every page. |
+| UI framework | Next.js 16.4 App Router (Turbopack) + TypeScript (strict) | Fixed by the brief. File-based routes, and one root layout renders the sidebar and top bar for every page. Cache Components is turned off: every page fetches its data in the browser, so the classic App Router model is simpler. |
 | Styling | Tailwind CSS | Utility classes make it quick to match Fireflies' spacing and colours; `dark:` variants give dark mode. |
 | Small UI libraries | `lucide-react` (icons), `sonner` (toasts), `next-themes` (dark mode) | Single-purpose and approved. Everything else, including modals and form controls, is hand-built. |
 | API | FastAPI + Pydantic v2 | Type-hinted request/response models give validation, serialisation and the OpenAPI docs at `/docs` from one definition. Dependency injection supplies the DB session and the current user. |
@@ -55,7 +55,9 @@ flowchart LR
 │   ├── ARCHITECTURE.md    this document
 │   └── reference/         Fireflies screenshots used as the UI reference (local only, git-ignored)
 ├── backend/
-│   ├── requirements.txt   Python dependencies
+│   ├── requirements.txt   runtime Python dependencies (installed on Render)
+│   ├── requirements-dev.txt  + pytest, httpx, ruff for local development
+│   ├── pyproject.toml     ruff and pytest configuration
 │   ├── app/               the FastAPI application (table below)
 │   ├── samples/           example .txt / .vtt / .json transcripts for demoing upload
 │   └── tests/             pytest suite: parsers, summary generator, key endpoints
@@ -94,14 +96,17 @@ flowchart LR
 | `app/meetings/[id]/page.tsx` | Meeting page: notes, transcript and player. |
 | `app/search/page.tsx` | Global search results (bonus 4). |
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
-| `components/layout/` | `Sidebar`, `Topbar`, `ThemeToggle` (bonus 1). |
+| `components/layout/` | `Sidebar`, `Topbar`, `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ApiStatus` (shows whether the browser can reach the API), `ThemeToggle` (bonus 1). |
 | `components/meetings/` | `MeetingList`, `MeetingRow`, `MeetingFilters`, `CreateMeetingModal`, `EditMeetingModal`. |
 | `components/meeting-detail/` | Core: `MediaPlayer`, `TranscriptPanel`, `TranscriptLine`, `TranscriptSearch`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`. Bonuses: `ExportMenu` (3), `HighlightsList`, `CommentThread`, `SoundbitesList` (5), `AskPanel` (6). |
 | `components/ui/` | Reusable primitives: `Button`, `Modal`, `Input`, `Badge`, `Avatar`, `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`. |
 | `hooks/` | `usePlayer` (virtual clock), `useActiveSegment` (binary search), `useDebounce`. |
 | `lib/api.ts` | The only module that calls `fetch`: one typed function per endpoint; throws an `ApiError` carrying the server's `detail` message. |
 | `lib/types.ts` | TypeScript types that mirror the API's response models. |
-| `lib/format.ts` | Time and date formatting (`ms` → `12:34` or `1:02:03`, dates in the browser's local time). |
+| `lib/format.ts` | Time and date formatting (`ms` → `12:34` or `1:02:03`, dates in the browser's local time) and avatar initials. |
+| `lib/cn.ts` | `cn()`: joins conditional class names. |
+| `lib/currentUser.ts` | The default logged-in user shown in the top bar (matches the seeded user). |
+| `app/icon.svg` | Our own favicon (the Glowworm mark). |
 
 ## 4. Backend
 
@@ -142,7 +147,7 @@ Each piece can be read, tested and changed on its own. Services are called by ro
 | Variable | Used by | Local default | Production |
 |---|---|---|---|
 | `DATABASE_URL` | backend | `sqlite:///./app.db` | same; Render's disk is ephemeral (§10) |
-| `CORS_ORIGINS` | backend, comma-separated | `http://localhost:3000` | the Vercel URL |
+| `CORS_ORIGINS` | backend, comma-separated | `http://localhost:3000,http://localhost:3001` | the Vercel URL (set in `render.yaml`) |
 | `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY` | backend, bonus 6 | unset (chat uses the fallback) | set in Render's dashboard only |
 | `NEXT_PUBLIC_API_URL` | frontend, inlined at build time | `http://localhost:8000` | the Render URL |
 
@@ -570,7 +575,7 @@ Base path `/api`. JSON in and out, except export, which returns a file. Every ro
 
 | Method | Path | Request | Success | Errors |
 |---|---|---|---|---|
-| GET | `/health` | none | 200 `{"status": "ok"}` | none |
+| GET | `/health` | none | 200 `{"status": "ok", "sqlite_version": "3.42.0", "fts5": true}`: also proves the host's SQLite supports full-text search | none |
 | GET | `/meetings` | query: `q`, `participant_id`, `date_from`, `date_to`, `sort=recent\|oldest` | 200 `MeetingListItem[]` | 422 |
 | POST | `/meetings` | `MeetingCreate`: `title`, `meeting_date`, `participant_names[]`, `transcript_text`, `format` (`txt\|vtt\|json`), `source` (`upload\|paste`) | 201 `MeetingDetail` | 422 (validation, or unparseable transcript) |
 | GET | `/meetings/{id}` | none | 200 `MeetingDetail` | 404 |
@@ -843,7 +848,8 @@ flowchart TB
 |---|---|---|
 | Host | Vercel | Render (free web service) |
 | Root directory | `frontend/` | `backend/` |
-| Configured by | Vercel project settings / CLI (`npx vercel`) | `render.yaml` (Blueprint) in the repo |
+| Configured by | Vercel project imported from GitHub (Root Directory `frontend`) | `render.yaml` (Blueprint): free plan, Singapore region, Python 3.12.7 |
+| Deploys | Automatically on every push to `main` | Automatically on every push to `main` (Render also re-applies `render.yaml`) |
 | Build | `npm run build` (Vercel default) | `pip install -r requirements.txt` |
 | Start | Vercel default | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
 | Environment | `NEXT_PUBLIC_API_URL` | `DATABASE_URL`, `CORS_ORIGINS`, Python version pin; `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY` (bonus 6, dashboard only) |
