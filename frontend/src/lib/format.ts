@@ -5,6 +5,12 @@ const DAY_HEADING = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
 });
+const LONG_DATE = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
 const SHORT_DATE = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
 const TIME_OF_DAY = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
 
@@ -16,6 +22,11 @@ export function initial(name: string): string {
 /** "Tue, Oct 6": the heading of a day's group in the meetings list. */
 export function formatDayHeading(iso: string): string {
   return DAY_HEADING.format(new Date(iso));
+}
+
+/** "Tue, Oct 6, 2026": the date on the meeting page. */
+export function formatLongDate(iso: string): string {
+  return LONG_DATE.format(new Date(iso));
 }
 
 /** "Oct 6" */
@@ -35,6 +46,16 @@ export function formatDuration(ms: number): string {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
   return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
+/** A position inside a meeting: "04:05", or "1:02:03" from the first hour on. */
+export function formatTimestamp(ms: number): string {
+  const totalSeconds = Math.floor(Math.max(0, ms) / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${seconds}`;
+  return `${String(minutes).padStart(2, "0")}:${seconds}`;
 }
 
 /** The local calendar day of an instant, "2026-10-06", used to group meetings by day. */

@@ -1,6 +1,6 @@
 // The only module that talks to the backend. Components call these typed functions,
 // never fetch() directly.
-import type { MeetingListItem, MeetingQuery, Participant } from "@/lib/types";
+import type { MeetingDetail, MeetingListItem, MeetingQuery, Participant } from "@/lib/types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -60,6 +60,10 @@ export function listMeetings(
   if (query.sort) params.set("sort", query.sort);
   const search = params.toString();
   return request<MeetingListItem[]>(search ? `/meetings?${search}` : "/meetings", { signal });
+}
+
+export function getMeeting(id: number, signal?: AbortSignal): Promise<MeetingDetail> {
+  return request<MeetingDetail>(`/meetings/${id}`, { signal });
 }
 
 export function listParticipants(signal?: AbortSignal): Promise<Participant[]> {
