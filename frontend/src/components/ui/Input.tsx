@@ -4,7 +4,7 @@ import type { InputHTMLAttributes, SelectHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
 const FIELD =
-  "h-9 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-700 shadow-xs " +
+  "h-9 rounded-lg border border-gray-300 bg-surface px-3 text-sm text-gray-700 shadow-xs " +
   "focus:border-brand-300 focus:ring-4 focus:ring-brand-100 focus:outline-none " +
   "disabled:cursor-not-allowed disabled:opacity-50";
 

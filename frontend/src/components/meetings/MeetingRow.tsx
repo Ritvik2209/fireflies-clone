@@ -12,7 +12,7 @@ export function MeetingRow({ meeting }: { meeting: MeetingListItem }) {
   return (
     <Link
       href={`/meetings/${meeting.id}`}
-      className="group flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-25"
+      className="group flex items-center gap-4 rounded-xl border border-gray-200 bg-surface px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-25"
     >
       {/* Like Fireflies, the row shows the meeting owner (every meeting here is the user's). */}
       <Avatar name={CURRENT_USER.name} color={CURRENT_USER.avatarColor} size="lg" />

@@ -31,7 +31,7 @@ export function TranscriptSearch({
   }
 
   return (
-    <div className="flex h-10 items-center gap-1 rounded-lg border border-transparent bg-gray-50 pr-1 pl-3 focus-within:border-brand-300 focus-within:bg-white focus-within:ring-4 focus-within:ring-brand-100">
+    <div className="flex h-10 items-center gap-1 rounded-lg border border-transparent bg-gray-50 pr-1 pl-3 focus-within:border-brand-300 focus-within:bg-surface focus-within:ring-4 focus-within:ring-brand-100">
       <Search className="size-4 shrink-0 text-gray-400" aria-hidden />
       <input
         type="text"

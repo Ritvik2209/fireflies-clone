@@ -33,7 +33,10 @@ export function ChaptersList({ chapters, durationMs, activeIndex, onSeek }: Chap
                 )}
               >
                 <span
-                  className={cn("flex-1", active ? "font-medium text-brand-700" : "text-gray-800")}
+                  className={cn(
+                    "flex-1",
+                    active ? "font-medium text-brand-700 dark:text-brand-300" : "text-gray-800",
+                  )}
                 >
                   {chapter.title}
                 </span>

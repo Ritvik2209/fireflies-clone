@@ -1,11 +1,17 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: dark: classes apply inside <html class="dark">, which next-themes sets. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /*
  * Design tokens. Colours were sampled from Fireflies' UI (see docs/reference/README.md);
  * they become Tailwind classes such as bg-brand-600, text-gray-500 or bg-avatar-green.
  */
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Page and card background: white here, near-black in dark mode (bg-surface). */
+  --color-surface: #ffffff;
 
   --color-brand-25: #fafaff;
   --color-brand-50: #f4f3ff;
@@ -45,4 +51,36 @@
   --color-avatar-orange: #f4b17a;
   --color-avatar-pink: #f7a8e0;
   --color-avatar-cyan: #6be4fd;
+}
+
+/*
+ * Dark mode. Rather than a dark: class on every element, the neutral colours get dark values here,
+ * so every component that uses them adapts on its own. The grey scale is mirrored and each step
+ * keeps its role: gray-900 is still "headings" (now the brightest), gray-200 still "borders".
+ * Values follow Untitled UI's dark palette. Accents that need special care use dark: classes.
+ * In the base layer, which comes after Tailwind's theme layer, so these values win.
+ */
+@layer base {
+  .dark {
+    --color-surface: #0c111d;
+
+    --color-gray-25: #111522;
+    --color-gray-50: #161b26;
+    --color-gray-100: #1f242f;
+    --color-gray-200: #2b303b;
+    --color-gray-300: #3a3f4a;
+    --color-gray-400: #61646c;
+    --color-gray-500: #85888e;
+    --color-gray-600: #94969c;
+    --color-gray-700: #cecfd2;
+    --color-gray-800: #ececed;
+    --color-gray-900: #f5f5f6;
+
+    /* Light purple tints become dark ones: tinted backgrounds (50) and focus rings (100). */
+    --color-brand-50: #1d1736;
+    --color-brand-100: #2f2266;
+
+    --color-link: #84adff;
+    --color-active-line: #1a1f3d;
+  }
 }

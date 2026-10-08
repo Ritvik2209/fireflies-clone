@@ -50,7 +50,7 @@ function ActionItemRow({ item, onSeek }: { item: ActionItem; onSeek: (ms: number
           "mt-1 flex size-4 shrink-0 items-center justify-center rounded border",
           item.is_completed
             ? "border-brand-600 bg-brand-600 text-white"
-            : "border-gray-300 bg-white",
+            : "border-gray-300 bg-surface",
         )}
       >
         {item.is_completed && <Check className="size-3" strokeWidth={3} aria-hidden />}

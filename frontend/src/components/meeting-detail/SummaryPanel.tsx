@@ -32,7 +32,7 @@ export const SummaryPanel = memo(function SummaryPanel({
     <div className="mt-8">
       <div className="flex items-center gap-2">
         <Sparkles className="size-4 text-brand-600" aria-hidden />
-        <h3 className="text-[15px] font-medium text-brand-700">AI notes</h3>
+        <h3 className="text-[15px] font-medium text-brand-700 dark:text-brand-300">AI notes</h3>
         {summary && (
           <span className="text-xs text-gray-400">
             {summary.generated_by === "rule_based"

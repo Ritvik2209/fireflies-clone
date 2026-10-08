@@ -71,7 +71,7 @@ export const TranscriptPanel = memo(function TranscriptPanel({
       className="relative flex min-w-0 flex-[9] flex-col border-l border-gray-200"
     >
       <div className="shrink-0 border-b border-gray-200 px-6">
-        <h2 className="-mb-px inline-block border-b-2 border-brand-600 py-3 text-sm font-medium text-brand-700">
+        <h2 className="-mb-px inline-block border-b-2 border-brand-600 py-3 text-sm font-medium text-brand-700 dark:text-brand-300">
           Transcript
         </h2>
       </div>
@@ -109,7 +109,7 @@ export const TranscriptPanel = memo(function TranscriptPanel({
         <button
           type="button"
           onClick={() => onFollowingChange(true)}
-          className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-md transition-colors hover:bg-gray-50 focus-visible:ring-4 focus-visible:ring-brand-100 focus-visible:outline-none"
+          className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-gray-200 bg-surface px-4 py-2 text-sm font-medium text-gray-700 shadow-md transition-colors hover:bg-gray-50 focus-visible:ring-4 focus-visible:ring-brand-100 focus-visible:outline-none"
         >
           <LocateFixed className="size-4 text-brand-600" aria-hidden />
           Sync with player

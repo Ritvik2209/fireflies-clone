@@ -96,7 +96,7 @@ export function MeetingListSkeleton() {
         {[0, 1, 2, 3].map((index) => (
           <div
             key={index}
-            className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-5 py-4"
+            className="flex items-center gap-4 rounded-xl border border-gray-200 bg-surface px-5 py-4"
           >
             <Skeleton className="size-12" />
             <div className="flex-1 space-y-2">

@@ -9,7 +9,7 @@ import { replaceSearchParams } from "@/lib/url";
 const LIBRARY = "/meetings";
 const INPUT_CLASSES =
   "h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pr-3 pl-9 text-sm text-gray-900 " +
-  "placeholder:text-gray-400 focus:border-brand-300 focus:bg-white focus:ring-4 " +
+  "placeholder:text-gray-400 focus:border-brand-300 focus:bg-surface focus:ring-4 " +
   "focus:ring-brand-100 focus:outline-none";
 
 /**

@@ -88,7 +88,7 @@ function highlight(
       <mark
         key={start}
         className={cn(
-          "rounded-sm text-gray-900",
+          "rounded-sm text-black", // dark text on yellow in both themes
           start === currentStart ? "bg-amber-300" : "bg-yellow-100",
         )}
       >

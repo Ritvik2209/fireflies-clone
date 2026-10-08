@@ -10,11 +10,11 @@ interface ComingSoonProps {
 export function ComingSoon({ icon: Icon, title, description }: ComingSoonProps) {
   return (
     <div className="px-8 py-16">
-      <div className="mx-auto max-w-lg rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-xs">
-        <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+      <div className="mx-auto max-w-lg rounded-2xl border border-gray-200 bg-surface p-10 text-center shadow-xs">
+        <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:text-brand-400">
           <Icon className="size-6" aria-hidden />
         </div>
-        <span className="mt-5 inline-block rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700">
+        <span className="mt-5 inline-block rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-medium text-brand-700 dark:text-brand-300">
           Coming soon
         </span>
         <h2 className="mt-3 text-xl font-semibold text-gray-900">{title}</h2>
