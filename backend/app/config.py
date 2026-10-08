@@ -17,8 +17,9 @@ def _split_comma_separated(value: str) -> tuple[str, ...]:
 def load_settings() -> Settings:
     return Settings(
         database_url=os.environ.get("DATABASE_URL", "sqlite:///./app.db"),
+        # Local default: Next's usual port, plus 3001 for machines where 3000 is taken.
         cors_origins=_split_comma_separated(
-            os.environ.get("CORS_ORIGINS", "http://localhost:3000")
+            os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001")
         ),
     )
 
