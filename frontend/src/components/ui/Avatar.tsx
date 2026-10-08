@@ -13,7 +13,7 @@ const COLORS: Record<AvatarColor, string> = {
 };
 
 const SIZES = {
-  sm: "size-5 text-[11px]",
+  sm: "size-6 text-[11px]",
   md: "size-8 text-sm",
   lg: "size-12 text-lg",
 };
