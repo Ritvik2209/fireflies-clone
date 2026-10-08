@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status: updated after Phase 2.** The backend core (database, parsers, summary generator, services, API, seed data, tests) and the frontend shell are built and deployed; names below match the code. The frontend pages (§5, §8) are still the plan for Phases 3–5. The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
+> **Status: updated after Phase 3.** The backend core (database, parsers, summary generator, services, API, seed data, tests), the frontend shell and the meetings library are built and deployed; names below match the code. The meeting page and the create/edit flows (the rest of §5, §8.2 onwards) are still the plan for Phases 4–5. The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
 
 **Contents:** [1. Overview](#1-system-overview) · [2. Stack](#2-tech-stack) · [3. Repository layout](#3-repository-layout) · [4. Backend](#4-backend) · [5. Frontend](#5-frontend) · [6. Database](#6-database) · [7. API](#7-api) · [8. Core data flows](#8-core-data-flows) · [9. Bonus features](#9-bonus-features) · [10. Deployment](#10-deployment) · [11. Assumptions and trade-offs](#11-assumptions-and-trade-offs)
 
@@ -96,15 +96,16 @@ flowchart LR
 | `app/meetings/[id]/page.tsx` | Meeting page: notes, transcript and player. |
 | `app/search/page.tsx` | Global search results (bonus 4). |
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
-| `components/layout/` | `Sidebar`, `Topbar`, `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ApiStatus` (shows whether the browser can reach the API), `ThemeToggle` (bonus 1). |
-| `components/meetings/` | `MeetingList`, `MeetingRow`, `MeetingFilters`, `CreateMeetingModal`, `EditMeetingModal`. |
+| `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1). |
+| `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`; `CreateMeetingModal`, `EditMeetingModal` (Phase 5). |
 | `components/meeting-detail/` | Core: `MediaPlayer`, `TranscriptPanel`, `TranscriptLine`, `TranscriptSearch`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`. Bonuses: `ExportMenu` (3), `HighlightsList`, `CommentThread`, `SoundbitesList` (5), `AskPanel` (6). |
-| `components/ui/` | Reusable primitives: `Button`, `Modal`, `Input`, `Badge`, `Avatar`, `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`. |
+| `components/ui/` | Reusable primitives: `Button`, `Modal`, `Input` (and a styled native `Select`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`. |
 | `hooks/` | `usePlayer` (virtual clock), `useActiveSegment` (binary search), `useDebounce`. |
 | `lib/api.ts` | The only module that calls `fetch`: one typed function per endpoint; throws an `ApiError` carrying the server's `detail` message. |
 | `lib/types.ts` | TypeScript types that mirror the API's response models. |
 | `lib/format.ts` | Time and date formatting (`ms` → `12:34` or `1:02:03`, dates in the browser's local time) and avatar initials. |
 | `lib/cn.ts` | `cn()`: joins conditional class names. |
+| `lib/url.ts` | `replaceSearchParams()`: updates the query string with `history.replaceState` (no navigation; Next.js keeps `useSearchParams` in sync). |
 | `lib/currentUser.ts` | The default logged-in user shown in the top bar (matches the seeded user). |
 | `app/icon.svg` | Our own favicon (the Glowworm mark). |
 
@@ -215,19 +216,28 @@ pytest, 57 tests: parsers, the summary generator, models (the database really en
 | URL | Page | Notes |
 |---|---|---|
 | `/` | none | Redirects to `/meetings`. |
-| `/meetings` | Library | Filters live in the query string (`?q=&participant_id=&date_from=&date_to=&sort=`, plus `tag_id` in bonus 2), so a filtered view survives reloads and the back button. |
+| `/meetings` | Library | Filters are mirrored in the query string (`?q=&participant=&from=&to=&sort=`; `from`/`to` are local `YYYY-MM-DD` days; `tag` arrives in bonus 2), so a filtered view survives a reload and can be shared. |
 | `/meetings/[id]` | Meeting | Optional `?t=<ms>` starts the player at that moment (used by global search). |
 | `/search` | Global search results | `?q=` (bonus 4). |
 | `/record`, `/integrations`, `/team`, `/settings` | Placeholders | Fireflies-styled "Coming soon" pages. |
 
-The root layout renders the shell once: `Sidebar` (navigation) and `Topbar` (search, "Upload / New meeting", profile and settings placeholders, and the theme toggle from bonus 1). Pages render only their own content. Until global search (bonus 4) exists, the top-bar search filters the library by title; after that it opens `/search?q=…`.
+The root layout renders the shell once: `Sidebar` (navigation) and `Topbar` (search, "Upload / New meeting", profile and settings placeholders, and the theme toggle from bonus 1). Pages render only their own content.
+
+**The top-bar search is the library's title search**, like Fireflies' "Search by title" box:
+- On `/meetings`, every keystroke writes `?q=` with `replaceSearchParams`. The library reads `q` from the URL and fetches once typing pauses.
+- On any other page, Enter opens `/meetings?q=…`.
+- While focused, the box shows what you're typing; otherwise it shows the URL's `q`. That keeps it in sync with "Clear filters", reloads and shared links, without the race you'd get from copying the URL back into an input while someone types.
+- Because it reads the URL (`useSearchParams`), it renders inside a `<Suspense>` boundary, with a static placeholder in the prerendered HTML.
+- When global search (bonus 4) exists, Enter will open `/search?q=…` instead.
 
 ### 5.2 Data fetching
 
 - `lib/api.ts` is the only module that calls `fetch`. It exposes typed functions (`listMeetings(filters)`, `getMeeting(id)`, `createMeeting(body)`, `updateActionItem(id, patch)`, …), returns the types from `lib/types.ts`, and throws an `ApiError` with the server's `detail` message on non-2xx responses.
-- Pages are client components. They fetch in `useEffect` and track `loading / error / data`: a `Skeleton` while loading, an `EmptyState` for empty results, a toast on errors.
+- Pages render a client component that fetches in `useEffect`: a `Skeleton` while loading, an `EmptyState` for empty results, and an error message with "Try again" (toasts arrive in Phase 5). Pages that read the URL (`useSearchParams`) wrap that component in `<Suspense>`, whose fallback is the skeleton in the prerendered HTML.
+- **Loading without extra state:** each result is stored together with the key of the request it answers (`JSON.stringify([query, filters, attempt])`). The page is loading whenever the latest result's key isn't the current key, so no `setLoading(true)` is needed before each request. "Try again" bumps `attempt`, which changes the key and refetches.
+- **Cold starts:** if loading takes more than 4 seconds, a note explains that the free server is waking up (it can take up to a minute).
 - **Why fetch in the browser rather than in server components:** the meeting page is interactive anyway (player, sync, search); Render's free tier can take up to about a minute to wake up, and a skeleton is better than a server render that hangs; reads and writes share one code path.
-- **Stale responses:** each request gets an `AbortController`. When filters change, the effect's cleanup aborts the previous request, so a slow old response can never overwrite a newer one. Typing in search boxes is debounced with `useDebounce` (~300 ms).
+- **Stale responses:** each request gets an `AbortController`. When filters change, the effect's cleanup aborts the previous request, so a slow old response can never overwrite a newer one. Typed search text waits for `useDebounce` (~300 ms after the last keystroke) before it triggers a request.
 - **After a mutation** the page updates its local state from the response (or navigates away) and shows a toast.
 
 ### 5.3 The meeting page: player and transcript sync
@@ -694,13 +704,13 @@ Each bonus phase adds its own flow to §9.
 
 ### 8.1 Loading the library
 
-1. The user opens `/meetings`. The root layout already shows the sidebar and top bar. The page, a client component, reads its filters from the URL query string.
-2. It renders `Skeleton` rows and calls `api.listMeetings(filters)`. The participant dropdown is filled once by `api.listParticipants()`.
-3. `lib/api.ts` sends `GET /api/meetings?q=plan&participant_id=3&sort=recent` with an `AbortSignal`.
+1. The user opens `/meetings`. The root layout already shows the sidebar and top bar. `MeetingsLibrary` (inside `<Suspense>`) initialises its participant, date-range and sort filters from the URL once, and reads `q` from the URL on every render.
+2. It renders `Skeleton` rows and calls `listMeetings(...)`. The participant dropdown is filled once by `listParticipants()`. The local days chosen in the date inputs become UTC instants: the start of the "from" day and the end of the "to" day, in the browser's time zone.
+3. `lib/api.ts` sends `GET /api/meetings?q=plan&participant_id=3&date_from=…Z&sort=recent` with an `AbortSignal`.
 4. `routers/meetings.py` validates the query parameters (types; `sort` must be `recent` or `oldest`, else 422) and calls `meetings_service.list_meetings(db, user, filters)`.
 5. The service builds one `SELECT` on `meetings`: `owner_id = user.id`; `title LIKE '%plan%'` (case-insensitive in SQLite; a scan, see §6.5); `Meeting.participants.any(...)`, which becomes an `EXISTS` subquery on `meeting_participants`; `meeting_date` between `date_from` and `date_to`; `ORDER BY meeting_date DESC`. `selectinload` fetches the participants with one extra query: 2 queries in total for any number of meetings.
-6. FastAPI serialises the result as `MeetingListItem[]`. The page stores it, and `MeetingList` renders one `MeetingRow` per meeting (title, local date, duration via `format.ts`, participant avatars), or an `EmptyState` such as "No meetings match these filters".
-7. Typing in the search box updates the input immediately. `useDebounce` waits ~300 ms before updating the URL, which repeats step 3 and aborts the previous request.
+6. FastAPI serialises the result as `MeetingListItem[]`. The page stores it with its request key, and `MeetingList` groups the meetings by local day ("Tue, Oct 6"). Each `MeetingRow` shows the owner's avatar (as Fireflies does), the title, "Oct 6 · 10:00 AM · 17 min" and an `AvatarStack` of participants. Alternatively it shows "No meetings yet", "No meetings match these filters" (with Clear filters) or "Couldn't load meetings" (with Try again).
+7. Typing in the top-bar search writes `?q=` immediately. `useDebounce` waits ~300 ms after typing stops, then step 3 repeats, and the effect's cleanup aborts the previous request. Changing a dropdown or date updates the filters' state and mirrors them into the URL with `replaceSearchParams`.
 
 ### 8.2 Opening a meeting
 

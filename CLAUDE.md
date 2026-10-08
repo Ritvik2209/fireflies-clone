@@ -150,6 +150,24 @@ frontend/src/
   - PATCH bodies reject explicit `null` for non-nullable fields (422 "x: can't be null"). The list filters are a Pydantic query model, with timezone-aware dates and an inverted range → 422. Title search escapes `%`/`_`.
   - Parsers: the first `.txt` line decides timestamped or untimestamped mode; continuation lines join the previous utterance. The generator excludes speakers' names from keywords, needs a person for "will" ("I'll", "we will"), and skips questions and pleasantries.
   - Tests set `DATABASE_URL` to a temp file in `conftest.py` before importing the app, and don't run the lifespan.
+- **Phase 3 implementation choices** (details in ARCHITECTURE.md §5.1, §5.2 and §8.1):
+  - **Search box:** the top-bar search is the library's title search, like Fireflies' "Search by title".
+    - On `/meetings` it writes `?q=` on every keystroke; on other pages, Enter opens `/meetings?q=…`.
+    - It shows the typed draft while focused and the URL's `q` otherwise.
+  - **Query string:**
+    - It is updated with `window.history.replaceState` (`lib/url.ts`), not `router.replace`. Next.js keeps `useSearchParams` in sync without a navigation or a server round trip.
+    - URL keys: `q`, `participant`, `from`/`to` (local `YYYY-MM-DD`), and `sort=oldest` (the default, recent, isn't written).
+  - **Filters:**
+    - Participant, dates and sort are local state, initialised from the URL once and mirrored back.
+    - `q` is read from the URL on every render and debounced 300 ms before fetching.
+  - **Loading:**
+    - It is derived (`loaded.key !== requestKey`), not stored.
+    - The previous request is aborted on change, and "Try again" bumps an attempt counter.
+    - After 4 s, a hint explains Render's cold start.
+  - **Rows:**
+    - Meetings are grouped by local day.
+    - A row shows the owner's avatar (as Fireflies does), the title, date · time · duration, and an `AvatarStack` of participants.
+  - **Removed:** the Phase 1 `ApiStatus` badge and `getHealth`, because the library's loading and error states now show whether the API is reachable.
 - **Seed world:** a fictional field-service software company, Kestrel (people and emails in `seed_data.json`; the default user Alex Morgan is Head of Product). Seed dialogue is hand-written; times were computed from word counts (95–100 wpm plus pauses) so meetings run 15–17 min. Bonus phases add their seed data to the same file.
 
 ## Schema summary (full spec and ER diagram: ARCHITECTURE.md §6)
@@ -189,7 +207,7 @@ It must look like Fireflies, not a generic notes app: left sidebar navigation, p
 | Variable | Where | Local default |
 |---|---|---|
 | `DATABASE_URL` | backend | `sqlite:///./app.db` |
-| `CORS_ORIGINS` | backend (comma-separated) | `http://localhost:3000` |
+| `CORS_ORIGINS` | backend (comma-separated) | `http://localhost:3000,http://localhost:3001` |
 | `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY` | backend, bonus 6 (Render env only; never in the repo or frontend) | unset → fallback answers |
 | `NEXT_PUBLIC_API_URL` | frontend (inlined at build time) | `http://localhost:8000` |
 
@@ -237,7 +255,7 @@ npm run build                        # also type-checks
 - [x] **Phase 0: Repo setup and docs (~1 h).** GitHub repo, `.gitignore`, `CLAUDE.md`, `docs/ARCHITECTURE.md`, `INTERVIEW_PREP.md`.
 - [x] **Phase 1: Skeleton + early deploy (~1 h).** FastAPI `/api/health`; Next.js shell (sidebar + top bar); both deployed (Render + Vercel) and talking to each other. UI references: `docs/reference/README.md`.
 - [x] **Phase 2: Backend core (~3 h).** Core models and relationships, schemas, parsers, summary generator, services, all core routes, seed data, pytest tests. No tags/search/export routes yet.
-- [ ] **Phase 3: Library page (~2 h).** List, title search, participant and date filters, sort, loading and empty states.
+- [x] **Phase 3: Library page (~2 h).** List, title search, participant and date filters, sort, loading and empty states.
 - [ ] **Phase 4: Meeting page (~3 h).** Simulated player, two-way transcript sync, transcript search, summary / keywords / chapters / action-items panels.
 - [ ] **Phase 5: CRUD UI + Fireflies experience (~2 h).** Create (upload/paste), edit, delete, action-item management, toasts, placeholder pages, UI pass against the screenshots.
 - [ ] **Phase 6: Core deploy + verification (~45 min).** Deploy, walk the Core Gate on the live link, write the README's core sections, fix anything that fails. Report, then wait for "go".
