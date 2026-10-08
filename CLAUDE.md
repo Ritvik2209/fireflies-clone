@@ -168,7 +168,7 @@ Six realistic, **original** meetings (e.g. sprint planning, sales discovery call
 
 ## UI direction
 
-It must look like Fireflies, not a generic notes app: left sidebar navigation, purple accent, clean white cards, meeting rows with participant avatars, and a meeting page with the AI-notes panel, transcript panel and player. Match the layout, spacing and colours of the owner's screenshots in `docs/reference/` (local only, git-ignored). **Ask for them before building UI.** The app is called **Glowworm**, with our own simple logo; never copy Fireflies' logo or images.
+It must look like Fireflies, not a generic notes app: left sidebar navigation, purple accent, clean white cards, meeting rows with participant avatars, and a meeting page with the AI-notes panel, transcript panel and player. **Before building any UI, read `docs/reference/README.md`.** It indexes the reference screenshots (downloaded from Fireflies' public website and help center; local only, git-ignored), the sampled colour tokens (primary `#6938EF`, timestamp blue `#175CD3`, …) and layout notes. It also lists the states no image covers: design those by analogy, or ask the owner. The app is called **Glowworm**, with our own simple logo; never copy Fireflies' logo or images into the app.
 
 ## Deployment and environment variables
 
@@ -216,7 +216,7 @@ npm run build
 
 **Part 1: Core**
 - [x] **Phase 0: Repo setup and docs (~1 h).** GitHub repo, `.gitignore`, `CLAUDE.md`, `docs/ARCHITECTURE.md`, `INTERVIEW_PREP.md`.
-- [ ] **Phase 1: Skeleton + early deploy (~1 h).** FastAPI `/api/health`; Next.js shell (sidebar + top bar); both deployed (Render + Vercel) and talking to each other. Get the screenshots before building UI.
+- [ ] **Phase 1: Skeleton + early deploy (~1 h).** FastAPI `/api/health`; Next.js shell (sidebar + top bar); both deployed (Render + Vercel) and talking to each other. UI references: `docs/reference/README.md`.
 - [ ] **Phase 2: Backend core (~3 h).** Core models and relationships, schemas, parsers, summary generator, services, all core routes, seed data, pytest tests. No tags/search/export routes yet.
 - [ ] **Phase 3: Library page (~2 h).** List, title search, participant and date filters, sort, loading and empty states.
 - [ ] **Phase 4: Meeting page (~3 h).** Simulated player, two-way transcript sync, transcript search, summary / keywords / chapters / action-items panels.
