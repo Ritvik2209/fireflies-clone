@@ -1,13 +1,26 @@
-"""FastAPI application: middleware and routers."""
+"""FastAPI application: startup, middleware, error handlers and routers."""
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
 from app.config import settings
+from app.database import init_db
+from app.errors import register_exception_handlers
 from app.routers import health
 
-app = FastAPI(title="Glowworm API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    # Runs once when the server starts: create any missing tables.
+    init_db()
+    yield
+
+
+app = FastAPI(title="Glowworm API", version="0.1.0", lifespan=lifespan)
 
 # The browser calls this API directly from the frontend's origin, so that origin must be allowed.
 app.add_middleware(
@@ -16,6 +29,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+register_exception_handlers(app)
 
 app.include_router(health.router, prefix="/api")
 
