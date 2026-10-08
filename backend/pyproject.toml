@@ -1,0 +1,17 @@
+# Tool configuration only; dependencies live in requirements*.txt.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# pycodestyle errors, pyflakes, import sorting, pyupgrade, bugbear
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+filterwarnings = [
+    # httpx is the approved test-client dependency; Starlette now suggests httpx2 instead.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
