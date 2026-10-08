@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { MediaPlayer } from "@/components/meeting-detail/MediaPlayer";
 import { MeetingHeader } from "@/components/meeting-detail/MeetingHeader";
@@ -17,12 +17,25 @@ import type { MeetingDetail, Participant } from "@/lib/types";
  */
 export function MeetingWorkspace({ meeting }: { meeting: MeetingDetail }) {
   const player = usePlayer(meeting.duration_ms);
+  const { seek } = player;
+  // Whether the transcript scrolls along with playback; scrolling it by hand turns this off.
+  const [following, setFollowing] = useState(true);
   const people = useMemo(
     () => new Map<number, Participant>(meeting.participants.map((person) => [person.id, person])),
     [meeting.participants],
   );
   const activeLine = findActiveIndex(meeting.segments, player.currentMs);
   const activeChapter = findActiveIndex(meeting.chapters, player.currentMs);
+
+  // Every seek (a line, a chapter, an action item, the seek bar) also brings the transcript back
+  // in step. Stable (useCallback), so the memoised panels and lines don't re-render because of it.
+  const seekAndFollow = useCallback(
+    (ms: number) => {
+      seek(ms);
+      setFollowing(true);
+    },
+    [seek],
+  );
 
   // The browser tab shows the meeting's title once it has loaded.
   useEffect(() => {
@@ -42,7 +55,7 @@ export function MeetingWorkspace({ meeting }: { meeting: MeetingDetail }) {
               people={people}
               durationMs={meeting.duration_ms}
               activeChapter={activeChapter}
-              onSeek={player.seek}
+              onSeek={seekAndFollow}
             />
           </div>
         </div>
@@ -50,7 +63,9 @@ export function MeetingWorkspace({ meeting }: { meeting: MeetingDetail }) {
           segments={meeting.segments}
           people={people}
           activeIndex={activeLine}
-          onSeek={player.seek}
+          following={following}
+          onFollowingChange={setFollowing}
+          onSeek={seekAndFollow}
         />
       </div>
       <MediaPlayer
@@ -59,7 +74,7 @@ export function MeetingWorkspace({ meeting }: { meeting: MeetingDetail }) {
         isPlaying={player.isPlaying}
         rate={player.rate}
         onToggle={player.toggle}
-        onSeek={player.seek}
+        onSeek={seekAndFollow}
         onRateChange={player.setRate}
       />
     </div>

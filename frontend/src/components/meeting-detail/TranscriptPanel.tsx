@@ -1,5 +1,6 @@
 "use client";
 
+import { LocateFixed } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { TranscriptLine } from "@/components/meeting-detail/TranscriptLine";
@@ -11,6 +12,8 @@ interface TranscriptPanelProps {
   segments: TranscriptSegment[];
   people: Map<number, Participant>;
   activeIndex: number; // the line being played, or -1
+  following: boolean; // whether the view follows playback (false after scrolling by hand)
+  onFollowingChange: (following: boolean) => void;
   onSeek: (ms: number) => void;
 }
 
@@ -22,6 +25,8 @@ export const TranscriptPanel = memo(function TranscriptPanel({
   segments,
   people,
   activeIndex,
+  following,
+  onFollowingChange,
   onSeek,
 }: TranscriptPanelProps) {
   const listRef = useRef<HTMLOListElement>(null);
@@ -33,11 +38,11 @@ export const TranscriptPanel = memo(function TranscriptPanel({
   const currentMatch: TranscriptMatch | undefined = matches[current];
   const searching = query.trim() !== "";
 
-  // Keep the line being played in view. This runs when the active line changes, not every frame,
-  // and pauses while searching, so it doesn't pull the view away from the search results.
+  // Keep the line being played in view. This runs when the active line changes, not every frame.
+  // It pauses while the user reads elsewhere (scrolled away, or searching), so it never fights them.
   useEffect(() => {
-    if (!searching && activeIndex >= 0) scrollToLine(listRef.current, activeIndex);
-  }, [activeIndex, searching]);
+    if (following && !searching && activeIndex >= 0) scrollToLine(listRef.current, activeIndex);
+  }, [activeIndex, following, searching]);
 
   // Bring the selected search match into view.
   useEffect(() => {
@@ -53,6 +58,11 @@ export const TranscriptPanel = memo(function TranscriptPanel({
     if (matches.length === 0) return;
     // Wrap around: after the last match comes the first, and before the first, the last.
     setCurrent((index) => (index + direction + matches.length) % matches.length);
+  }
+
+  // Wheel and touch scrolling come only from the user; our own scrollIntoView doesn't fire them.
+  function stopFollowing() {
+    if (following) onFollowingChange(false);
   }
 
   return (
@@ -74,7 +84,11 @@ export const TranscriptPanel = memo(function TranscriptPanel({
           onStep={step}
         />
       </div>
-      <div className="flex-1 overflow-y-auto px-3 pb-3">
+      <div
+        onWheel={stopFollowing}
+        onTouchMove={stopFollowing}
+        className="flex-1 overflow-y-auto px-3 pb-3"
+      >
         <ol ref={listRef}>
           {segments.map((segment, index) => (
             <TranscriptLine
@@ -90,6 +104,16 @@ export const TranscriptPanel = memo(function TranscriptPanel({
           ))}
         </ol>
       </div>
+      {!following && !searching && (
+        <button
+          type="button"
+          onClick={() => onFollowingChange(true)}
+          className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-md transition-colors hover:bg-gray-50 focus-visible:ring-4 focus-visible:ring-brand-100 focus-visible:outline-none"
+        >
+          <LocateFixed className="size-4 text-brand-600" aria-hidden />
+          Sync with player
+        </button>
+      )}
     </section>
   );
 });
