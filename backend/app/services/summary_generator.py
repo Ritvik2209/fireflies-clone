@@ -8,11 +8,9 @@ import re
 from collections import Counter
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
-from typing import Literal
 
+from app.models.summary import GeneratedBy
 from app.parsers.base import ParsedSegment
-
-GeneratedBy = Literal["seed", "rule_based"]
 
 OVERVIEW_SENTENCES = 3
 MIN_SENTENCE_WORDS = 8

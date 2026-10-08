@@ -43,7 +43,11 @@ def register_exception_handlers(app: FastAPI) -> None:
         # FastAPI's default puts a list in "detail"; we keep "detail" a readable string (for
         # toasts) and add the per-field list under "errors".
         errors = [
-            {"field": _field_name(item["loc"]), "message": item["msg"]} for item in error.errors()
+            {
+                "field": _field_name(item["loc"]),
+                "message": item["msg"].removeprefix("Value error, "),
+            }
+            for item in error.errors()
         ]
         first = errors[0]
         return JSONResponse(

@@ -1,7 +1,7 @@
 """A meeting's generated (or hand-written) notes: the summary and its chapter outline."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, get_args
 
 from sqlalchemy import JSON, CheckConstraint, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -12,13 +12,19 @@ from app.models.types import UTCDateTime, utc_now
 if TYPE_CHECKING:
     from app.models.meeting import Meeting
 
+# Who wrote the notes: hand-written seed data, or the rule-based generator.
+GeneratedBy = Literal["seed", "rule_based"]
+
 
 class Summary(Base):
     """One-to-one with a meeting: the UNIQUE meeting_id allows at most one summary each."""
 
     __tablename__ = "summaries"
     __table_args__ = (
-        CheckConstraint("generated_by IN ('seed', 'rule_based')", name="ck_summaries_generated_by"),
+        CheckConstraint(
+            f"generated_by IN ({', '.join(repr(value) for value in get_args(GeneratedBy))})",
+            name="ck_summaries_generated_by",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

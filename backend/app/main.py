@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from app.config import settings
 from app.database import init_db
 from app.errors import register_exception_handlers
-from app.routers import health
+from app.routers import action_items, health, meetings, participants
 
 
 @asynccontextmanager
@@ -32,7 +32,8 @@ app.add_middleware(
 
 register_exception_handlers(app)
 
-app.include_router(health.router, prefix="/api")
+for router in (health.router, meetings.router, action_items.router, participants.router):
+    app.include_router(router, prefix="/api")
 
 
 @app.get("/", include_in_schema=False)
