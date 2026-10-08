@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { ThemeProvider } from "next-themes";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
@@ -15,17 +16,28 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="bg-white font-sans text-gray-900 antialiased">
-        <div className="flex h-screen">
-          <Sidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Topbar />
-            {/* relative: absolutely positioned children (e.g. sr-only text) stay inside main's
+    // suppressHydrationWarning: next-themes adds class="dark" to <html> before React loads, so that
+    // attribute differs from the server HTML on purpose.
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <body className="bg-surface font-sans text-gray-900 antialiased">
+        {/* Adds class="dark" to <html> in dark mode, follows the system setting until the user
+            picks a theme, and remembers that choice in localStorage. */}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <div className="flex h-screen">
+            <Sidebar />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <Topbar />
+              {/* relative: absolutely positioned children (e.g. sr-only text) stay inside main's
                 scroll area instead of stretching the whole document. */}
-            <main className="relative flex-1 overflow-y-auto">{children}</main>
+              <main className="relative flex-1 overflow-y-auto">{children}</main>
+            </div>
           </div>
-        </div>
+        </ThemeProvider>
       </body>
     </html>
   );

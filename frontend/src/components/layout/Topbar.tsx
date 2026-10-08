@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 
 import { sectionTitle } from "@/components/layout/navigation";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TopbarSearch, TopbarSearchPlaceholder } from "@/components/layout/TopbarSearch";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -15,7 +16,7 @@ export function Topbar() {
   const pathname = usePathname();
 
   return (
-    <header className="flex h-[60px] shrink-0 items-center gap-4 border-b border-gray-200 bg-white px-6">
+    <header className="flex h-[60px] shrink-0 items-center gap-4 border-b border-gray-200 bg-surface px-6">
       <h1 className="w-40 shrink-0 truncate text-base text-gray-900">{sectionTitle(pathname)}</h1>
 
       <div className="flex flex-1 justify-center">
@@ -26,6 +27,7 @@ export function Topbar() {
       </div>
 
       <div className="flex items-center gap-2">
+        <ThemeToggle />
         <Link
           href="/settings"
           aria-label="Settings"
