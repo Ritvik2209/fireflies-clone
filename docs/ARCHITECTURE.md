@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status: updated after Phase 3.** The backend core (database, parsers, summary generator, services, API, seed data, tests), the frontend shell and the meetings library are built and deployed; names below match the code. The meeting page and the create/edit flows (the rest of §5, §8.2 onwards) are still the plan for Phases 4–5. The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
+> **Status: updated after Phase 4.** The backend core (database, parsers, summary generator, services, API, seed data, tests), the frontend shell, the meetings library and the meeting page (player, transcript sync and search, notes) are built and deployed; names below match the code. The create/edit flows and action-item editing (§8.6, §8.7) are still the plan for Phase 5. The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
 
 **Contents:** [1. Overview](#1-system-overview) · [2. Stack](#2-tech-stack) · [3. Repository layout](#3-repository-layout) · [4. Backend](#4-backend) · [5. Frontend](#5-frontend) · [6. Database](#6-database) · [7. API](#7-api) · [8. Core data flows](#8-core-data-flows) · [9. Bonus features](#9-bonus-features) · [10. Deployment](#10-deployment) · [11. Assumptions and trade-offs](#11-assumptions-and-trade-offs)
 
@@ -98,9 +98,10 @@ flowchart LR
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
 | `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1). |
 | `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`; `CreateMeetingModal`, `EditMeetingModal` (Phase 5). |
-| `components/meeting-detail/` | Core: `MediaPlayer`, `TranscriptPanel`, `TranscriptLine`, `TranscriptSearch`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`. Bonuses: `ExportMenu` (3), `HighlightsList`, `CommentThread`, `SoundbitesList` (5), `AskPanel` (6). |
-| `components/ui/` | Reusable primitives: `Button`, `Modal`, `Input` (and a styled native `Select`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`. |
-| `hooks/` | `usePlayer` (virtual clock), `useActiveSegment` (binary search), `useDebounce`. |
+| `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`. Bonuses: `ExportMenu` (3), `HighlightsList`, `CommentThread`, `SoundbitesList` (5), `AskPanel` (6). |
+| `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal`, `Input` (and a styled native `Select`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
+| `hooks/` | `usePlayer` (virtual clock), `useDebounce`. |
+| `lib/transcript.ts` | Pure functions: `findActiveIndex` (binary search for the line or chapter playing at a given time), `findMatches` and `groupMatchesByLine` (transcript search). They aren't hooks, because they hold no state. |
 | `lib/api.ts` | The only module that calls `fetch`: one typed function per endpoint; throws an `ApiError` carrying the server's `detail` message. |
 | `lib/types.ts` | TypeScript types that mirror the API's response models. |
 | `lib/format.ts` | Time and date formatting (`ms` → `12:34` or `1:02:03`, dates in the browser's local time) and avatar initials. |
@@ -217,7 +218,7 @@ pytest, 57 tests: parsers, the summary generator, models (the database really en
 |---|---|---|
 | `/` | none | Redirects to `/meetings`. |
 | `/meetings` | Library | Filters are mirrored in the query string (`?q=&participant=&from=&to=&sort=`; `from`/`to` are local `YYYY-MM-DD` days; `tag` arrives in bonus 2), so a filtered view survives a reload and can be shared. |
-| `/meetings/[id]` | Meeting | Optional `?t=<ms>` starts the player at that moment (used by global search). |
+| `/meetings/[id]` | Meeting | From bonus 4, an optional `?t=<ms>` starts the player at that moment (used by global search). |
 | `/search` | Global search results | `?q=` (bonus 4). |
 | `/record`, `/integrations`, `/team`, `/settings` | Placeholders | Fireflies-styled "Coming soon" pages. |
 
@@ -247,24 +248,37 @@ The page component owns three pieces of state and passes them down as props and 
 | State | Source |
 |---|---|
 | Meeting data | `api.getMeeting(id)` |
-| Player: `currentMs`, `isPlaying`, `rate` | `usePlayer(durationMs)`, which also returns `play`, `pause`, `toggle`, `seek`, `setRate` (and `playRange` from bonus 5) |
-| Transcript search: query, matches, current match | local state in the page |
+| Player: `currentMs`, `isPlaying`, `rate` | `usePlayer(durationMs)` in `MeetingWorkspace`, which also returns `play`, `pause`, `toggle`, `seek`, `setRate` (and `playRange` from bonus 5) |
+| Whether the transcript follows playback | `following` state in `MeetingWorkspace`. Scrolling the transcript by hand turns it off; any seek, or "Sync with player", turns it back on. |
+| Transcript search: query, matches, current match | Local state in `TranscriptPanel`, the only component that uses it. |
 
 ```mermaid
 flowchart LR
     tick["rAF tick while playing"] --> clock["usePlayer<br/>currentMs = anchorMs + (now − anchorTime) × rate"]
     userClick["click a line, chapter or action item"] --> seek["seek(ms)<br/>sets a new anchor"]
-    deeplink["?t=ms in the URL"] --> seek
+    deeplink["?t=ms in the URL (bonus 4)"] --> seek
     seek --> clock
-    clock --> active["useActiveSegment<br/>binary search → activeIndex"]
+    clock --> active["findActiveIndex<br/>binary search → activeIndex"]
     active -- "index changed" --> line["TranscriptLine highlights<br/>and scrolls into view"]
     clock --> bar["MediaPlayer<br/>seek bar and time label"]
 ```
 
 - **Virtual clock.** There is no audio file. On play, `usePlayer` records an anchor: the media time (`anchorMs`) and the wall-clock time (`anchorTime = performance.now()`). A `requestAnimationFrame` loop then computes `currentMs = anchorMs + (performance.now() − anchorTime) × rate`. A seek or a speed change sets a new anchor. Because time is computed from the anchor rather than added up frame by frame, it cannot drift, and it stays correct when frames are skipped or the tab is in the background. Playback stops at `duration_ms`.
-- **Active line.** `useActiveSegment(segments, currentMs)` binary-searches the segments (sorted by `start_ms`) for the last one with `start_ms ≤ currentMs`: O(log n) per frame. Before the first segment nothing is active; during a silence the previous line stays active.
+- **Active line.** `findActiveIndex(segments, currentMs)` binary-searches the segments (sorted by `start_ms`) for the last one with `start_ms ≤ currentMs`: O(log n) per frame.
+  - Before the first segment nothing is active; during a silence the previous line stays active.
+  - The same function finds the active chapter, which is highlighted in the chapters list.
+  - It's a plain function, not a hook: it holds no state, and React's rule is that only functions that call hooks are named `use…`.
 - **Rendering cost.** `currentMs` changes about 60 times a second, but `TranscriptLine` is wrapped in `React.memo` and receives only primitive props and stable callbacks. Only the line that stops being active and the line that becomes active re-render, and only at segment boundaries.
-- **Auto-scroll.** When `activeIndex` changes, the active line calls `scrollIntoView({ block: "center", behavior: "smooth" })`. Auto-scroll pauses while a transcript search is active, so it doesn't fight the user.
+- **More memoisation.** `SummaryPanel` and `TranscriptPanel` are memoised too, and every callback they receive is stable (`useCallback`). So on a normal frame, only `MeetingWorkspace` and the player bar re-render.
+- **Auto-scroll.** When `activeIndex` changes, the transcript container smoothly scrolls the active line to its middle (`container.scrollTo`).
+  - It scrolls only that container. `element.scrollIntoView()` would also scroll every scrollable ancestor, including the page.
+  - It pauses while a transcript search is active.
+  - It also pauses when the user scrolls the transcript by hand (wheel or touch events, which programmatic scrolling never fires). A "Sync with player" button then appears, like Fireflies' "Sync with audio"; the button, or any seek, turns following back on.
+- **Scroll areas are `relative`.** An absolutely positioned element (such as `sr-only` text) inside a scroll area that isn't positioned escapes it and stretches the whole document, which made the page itself scrollable. So every scroll area (`main`, the notes column, the transcript) is `position: relative`.
+- **Controls.**
+  - The seek bar is a native `<input type="range">`, so keyboard and screen-reader support come for free; arrow keys move 1 s.
+  - The speed button cycles 1× → 1.5× → 2× → 0.5×, and the skip buttons move 15 s.
+  - Clicking anywhere on a transcript line seeks to it, unless the user is selecting text. Its timestamp is a real button, for keyboard users.
 - **Bonus hooks into the same clock:** soundbites play a range with `playRange(startMs, endMs)`, which pauses automatically at `endMs` (bonus 5); timestamps in chat answers call `seek()` (bonus 6).
 
 ### 5.4 Styling
@@ -732,21 +746,24 @@ sequenceDiagram
     S-->>R: Meeting object (or NotFoundError, sent as 404)
     R-->>A: 200 MeetingDetail JSON
     A-->>P: typed MeetingDetail
-    P->>P: create player, seek to ?t= if present, render notes and transcript
+    P->>P: create the player, render notes and transcript
 ```
 
 1. Clicking a row navigates client-side to `/meetings/7`; the layout stays mounted and there is no full page load.
 2. The page shows a skeleton and calls `api.getMeeting(7)`, which sends `GET /api/meetings/7`.
-3. The service loads the meeting with `selectinload` for participants, segments, summary, chapters and action items (6 queries), scoped to the user. If it is missing, the 404 makes the page show a "Meeting not found" empty state with a link back to the library.
-4. With the data loaded, the page creates the player with `usePlayer(meeting.duration_ms)`. If the URL contains `?t=412000`, it calls `seek(412000)`.
-5. It renders the header (title, date, participants, Edit / Delete), `SummaryPanel` (overview, keywords, `ChaptersList`, `ActionItemsList`), `TranscriptPanel` (`TranscriptSearch` and one `TranscriptLine` per segment) and `MediaPlayer`.
+3. The service loads the meeting with `selectinload` for participants, segments, summary, chapters and action items (6 queries), scoped to the user.
+   - If the meeting doesn't exist, the 404 makes `MeetingView` show a "Meeting not found" empty state with a link back to the library.
+   - An id that isn't a number (`/meetings/abc`) shows the same state without making a request.
+   - Any other error shows "Couldn't load this meeting" with Try again.
+4. With the data loaded, `MeetingView` renders `MeetingWorkspace`. It's keyed by the meeting id, so a different meeting gets a fresh player. `MeetingWorkspace` creates the player with `usePlayer(meeting.duration_ms)` and sets the browser tab's title to the meeting's. (From bonus 4, a `?t=412000` in the URL will call `seek(412000)` here.)
+5. It renders `MeetingHeader` (title, date, participants; Edit / Delete arrive in Phase 5), `SummaryPanel` (keywords, overview, `ChaptersList`, and `ActionItemsList` grouped by assignee), `TranscriptPanel` (`TranscriptSearch` and one `TranscriptLine` per segment) and `MediaPlayer`.
 
 ### 8.3 Click-to-seek
 
 1. The user clicks a transcript line (or a chapter, or an action item's timestamp).
-2. The component calls the `onSeek(startMs)` callback it received from the page.
+2. The component calls the `onSeek(startMs)` callback it received from `MeetingWorkspace`. That callback seeks and also turns transcript following back on.
 3. `player.seek(ms)` clamps the value to `[0, duration]`, sets `currentMs` and moves the anchor (`anchorMs = ms`, `anchorTime = performance.now()`). Play/pause state is unchanged.
-4. The new `currentMs` flows into `useActiveSegment`, which returns the new active index; that line highlights and scrolls into view (8.4, steps 4–6).
+4. The new `currentMs` flows into `findActiveIndex`, which returns the new active index; that line highlights and scrolls into view (8.4, steps 4–6).
 
 No network request is involved: the whole transcript is already in memory.
 
@@ -755,15 +772,15 @@ No network request is involved: the whole transcript is already in memory.
 1. `play()` sets `isPlaying`, records the anchor and starts a `requestAnimationFrame` loop.
 2. On every frame (about 60 per second; browsers pause rAF in background tabs), `currentMs = anchorMs + (performance.now() − anchorTime) × rate`. When it reaches `duration_ms` the player pauses at the end.
 3. Changing the speed first re-anchors at the current position, so the time doesn't jump.
-4. `useActiveSegment(segments, currentMs)` binary-searches for the last segment with `start_ms ≤ currentMs`.
+4. `findActiveIndex(segments, currentMs)` binary-searches for the last segment with `start_ms ≤ currentMs`.
 5. The index only changes at segment boundaries. Because `TranscriptLine` is memoised, only the previous and the new active line re-render.
-6. An effect on `activeIndex` scrolls the active line into view (`block: "center"`, smooth), unless a transcript search is active.
+6. An effect on `activeIndex` scrolls the transcript container so the active line is in its middle (smooth). It doesn't scroll while a transcript search is active, or after the user has scrolled the transcript away ("Sync with player" brings it back).
 7. `MediaPlayer` re-renders every frame with the new seek-bar position and time label (`format.ts`), which is cheap.
 
 ### 8.5 Transcript search
 
 1. The user types in `TranscriptSearch`.
-2. The page finds matches in memory. It escapes the query for use in a regular expression, so characters like `+` or `(` are taken literally, then collects every case-insensitive occurrence in every segment into one flat list. `m` is the length of that list.
+2. `TranscriptPanel` finds matches in memory with `findMatches` (memoised on the query). It escapes the query for use in a regular expression, so characters like `+` or `(` are taken literally, then collects every case-insensitive occurrence in every segment into one flat list. `m` is the length of that list. `groupMatchesByLine` hands each line only its own matches, as an array that stays the same until the query changes, so the memoised lines don't re-render needlessly.
 3. Each `TranscriptLine` with matches splits its text into plain strings and `<mark>` elements. React escapes the strings, so nothing in a transcript is ever interpreted as HTML. The current match gets a stronger highlight.
 4. The panel shows "n of m". Next / Previous (also Enter / Shift+Enter) move `n`, wrapping around, and scroll that line into view.
 5. While a query is active, auto-scroll is paused. Clearing the query removes the highlights and resumes it.

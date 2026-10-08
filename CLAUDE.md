@@ -113,8 +113,8 @@ backend/pyproject.toml                            ruff + pytest config
 frontend/src/
   app/             routes: /meetings, /meetings/[id], /search, /settings, /integrations, /team, /record
   components/      layout/, meetings/, meeting-detail/, ui/ (see ARCHITECTURE.md §3)
-  hooks/           usePlayer, useActiveSegment, useDebounce
-  lib/             api.ts (typed fetch client), types.ts, format.ts
+  hooks/           usePlayer, useDebounce
+  lib/             api.ts (typed fetch client), types.ts, format.ts, url.ts, transcript.ts (pure helpers)
 ```
 
 - Routers never contain business logic. Services never raise `HTTPException`; they raise domain errors from `errors.py`.
@@ -136,7 +136,7 @@ frontend/src/
 - **Participants by name:** create/edit forms send names; names and transcript speakers are matched case-insensitively (`participants.name` is `COLLATE NOCASE`, so the index is still used) or created. Speakers always remain participants of their meeting: a PATCH that removes one → 409. Segments carry only `speaker_id`; the client looks up the name in `meeting.participants`. Parsed segments are stable-sorted by `start_ms` before positions are assigned (binary search depends on it).
 - **Colours** (`participants.avatar_color`, `tags.color`) are palette keys such as `"violet"`, mapped to complete static Tailwind classes in the frontend. Never build class names dynamically (`bg-${c}-500` is invisible to Tailwind).
 - **Frontend data:** client components fetch through `lib/api.ts` (browser → API directly, hence CORS and `NEXT_PUBLIC_API_URL`). Skeletons cover Render cold starts; an `AbortController` drops stale responses. Library filters live in the URL query string.
-- **Player:** `usePlayer` computes `currentMs = anchorMs + (performance.now() − anchorTime) × rate` in a rAF loop (no drift); a seek or speed change sets a new anchor. `useActiveSegment` binary-searches for the last segment with `start_ms ≤ currentMs`. `TranscriptLine` is `React.memo`, so only lines whose active state changes re-render. Soundbites (bonus 5) use `playRange(start, end)`, which pauses automatically at `end`.
+- **Player:** `usePlayer` computes `currentMs = anchorMs + (performance.now() − anchorTime) × rate` in a rAF loop (no drift); a seek or speed change sets a new anchor. `findActiveIndex` (`lib/transcript.ts`, a plain function, not a hook) binary-searches for the last segment with `start_ms ≤ currentMs`. `TranscriptLine` is `React.memo`, so only lines whose active state changes re-render. Soundbites (bonus 5) use `playRange(start, end)`, which pauses automatically at `end`.
 - **XSS-safe rendering:** search matches, FTS snippets and chat citations are rendered by splitting text into strings and React elements (`<mark>`, seek buttons). Never use `dangerouslySetInnerHTML`. FTS `snippet()` marks matches with `\x02` / `\x03`.
 - **FTS queries (bonus 4):** split user input into words and double-quote each before `MATCH` (raw input such as `don't` is an FTS5 syntax error); always a bound parameter. Tokenizer `porter unicode61`. Rank with `bm25()` (lower = better). Chat retrieval (bonus 6) drops stopwords and joins the quoted terms with `OR`.
 - **Uploads:** the browser reads the file (`file.text()`), takes the format from the extension, enforces a size cap, and POSTs JSON `{transcript_text, format, source}`.
@@ -168,6 +168,28 @@ frontend/src/
     - Meetings are grouped by local day.
     - A row shows the owner's avatar (as Fireflies does), the title, date · time · duration, and an `AvatarStack` of participants.
   - **Removed:** the Phase 1 `ApiStatus` badge and `getHealth`, because the library's loading and error states now show whether the API is reachable.
+- **Phase 4 implementation choices** (details in ARCHITECTURE.md §3, §5.3 and §8.2–8.5):
+  - **Components:**
+    - `MeetingView` loads the meeting and shows the skeleton, "Meeting not found" (404, or an id that isn't a number) or an error with Try again.
+    - `MeetingWorkspace` (keyed by meeting id) owns the player and the layout: notes on the left (~55%), transcript on the right, player bar at the bottom.
+  - **State:**
+    - Transcript search state lives in `TranscriptPanel`, the only component that uses it.
+    - `findActiveIndex` is a pure function in `lib/transcript.ts`, not a `useActiveSegment` hook. It also finds the active chapter.
+  - **Follow mode:**
+    - Wheel or touch scrolling in the transcript stops auto-scroll and shows "Sync with player" (Fireflies' "Sync with audio").
+    - The button, or any seek, resumes it. Auto-scroll also pauses while searching.
+  - **Scrolling:**
+    - The transcript scrolls only its own container (`container.scrollTo`), never `scrollIntoView`, which scrolls every ancestor.
+    - Every scroll area is `relative` (see Known gotchas).
+  - **Memoisation:** `SummaryPanel`, `TranscriptPanel` and `TranscriptLine` are memoised with stable callbacks, so a normal frame re-renders only the workspace and the player bar.
+  - **Controls:**
+    - The seek bar is a native range input (1 s steps).
+    - Speed cycles 1× → 1.5× → 2× → 0.5×, and skip is ±15 s.
+    - Clicking a line seeks unless text is being selected; its timestamp is a button for keyboard users.
+  - **Notes:**
+    - Action items are grouped by assignee and read-only until Phase 5. Their timestamp seeks.
+    - The notes show whether they're hand-written seed notes or generated from the transcript.
+  - **Not yet:** `?t=` deep links arrive with global search (bonus 4).
 - **Seed world:** a fictional field-service software company, Kestrel (people and emails in `seed_data.json`; the default user Alex Morgan is Head of Product). Seed dialogue is hand-written; times were computed from word counts (95–100 wpm plus pauses) so meetings run 15–17 min. Bonus phases add their seed data to the same file.
 
 ## Schema summary (full spec and ER diagram: ARCHITECTURE.md §6)
@@ -246,6 +268,10 @@ npm run build                        # also type-checks
 - `with TestClient(app)` runs the startup lifespan (create tables, seed). Point tests at a temporary database before the app touches the real one.
 - Tailwind v4 is configured in CSS. Class-based dark mode with `next-themes` needs `@custom-variant dark (&:where(.dark, .dark *));` in `globals.css`.
 - Next.js client pages that call `useSearchParams()` need a `<Suspense>` boundary, or the production build fails.
+- **Scroll areas must be `relative`.**
+  - Otherwise an absolutely positioned child, such as Tailwind's `sr-only` text, escapes the area and stretches the document. On the meeting page that made the whole page scrollable (1244 px in an 805 px window).
+  - For the same reason, scroll a container with `container.scrollTo(...)`: `element.scrollIntoView()` also scrolls every scrollable ancestor.
+- **New routes and `tsc`:** `PageProps<"/route">` types come from Next's generated route types. After adding a route, run `npx next typegen` (or `dev`/`build`) before `tsc --noEmit`.
 - **fpdf2's built-in fonts only cover Western single-byte characters** (Latin-1 / Windows-1252), so other text (many non-English names, emoji) breaks PDF export. Phase 9 plan: bundle a free Unicode TTF (e.g. DejaVu Sans); confirm with the owner first.
 - **LLM model names and SDK usage:** check current documentation at Phase 12; don't rely on memory.
 
@@ -256,7 +282,7 @@ npm run build                        # also type-checks
 - [x] **Phase 1: Skeleton + early deploy (~1 h).** FastAPI `/api/health`; Next.js shell (sidebar + top bar); both deployed (Render + Vercel) and talking to each other. UI references: `docs/reference/README.md`.
 - [x] **Phase 2: Backend core (~3 h).** Core models and relationships, schemas, parsers, summary generator, services, all core routes, seed data, pytest tests. No tags/search/export routes yet.
 - [x] **Phase 3: Library page (~2 h).** List, title search, participant and date filters, sort, loading and empty states.
-- [ ] **Phase 4: Meeting page (~3 h).** Simulated player, two-way transcript sync, transcript search, summary / keywords / chapters / action-items panels.
+- [x] **Phase 4: Meeting page (~3 h).** Simulated player, two-way transcript sync, transcript search, summary / keywords / chapters / action-items panels.
 - [ ] **Phase 5: CRUD UI + Fireflies experience (~2 h).** Create (upload/paste), edit, delete, action-item management, toasts, placeholder pages, UI pass against the screenshots.
 - [ ] **Phase 6: Core deploy + verification (~45 min).** Deploy, walk the Core Gate on the live link, write the README's core sections, fix anything that fails. Report, then wait for "go".
 
