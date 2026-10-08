@@ -1,8 +1,9 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/cn";
 import { formatTimestamp } from "@/lib/format";
+import type { TextRange } from "@/lib/transcript";
 import type { Participant, TranscriptSegment } from "@/lib/types";
 
 interface TranscriptLineProps {
@@ -10,6 +11,8 @@ interface TranscriptLineProps {
   segment: TranscriptSegment;
   speaker: Participant | undefined;
   isActive: boolean;
+  matches: TextRange[] | undefined; // search matches in this line
+  currentMatchStart: number; // where the selected match starts, or -1 if it's not in this line
   onSeek: (ms: number) => void;
 }
 
@@ -23,6 +26,8 @@ export const TranscriptLine = memo(function TranscriptLine({
   segment,
   speaker,
   isActive,
+  matches,
+  currentMatchStart,
   onSeek,
 }: TranscriptLineProps) {
   const timestamp = formatTimestamp(segment.start_ms);
@@ -58,7 +63,40 @@ export const TranscriptLine = memo(function TranscriptLine({
           {timestamp}
         </button>
       </div>
-      <p className="mt-1.5 pl-8 text-[15px] leading-7 text-gray-700">{segment.text}</p>
+      <p className="mt-1.5 pl-8 text-[15px] leading-7 text-gray-700">
+        {highlight(segment.text, matches, currentMatchStart)}
+      </p>
     </li>
   );
 });
+
+/**
+ * The text with every search match wrapped in <mark>. It's built from strings and elements, never
+ * from HTML: React escapes the strings, so a transcript can't inject markup (XSS-safe).
+ */
+function highlight(
+  text: string,
+  matches: TextRange[] | undefined,
+  currentStart: number,
+): ReactNode {
+  if (!matches) return text;
+  const parts: ReactNode[] = [];
+  let position = 0;
+  for (const { start, end } of matches) {
+    parts.push(text.slice(position, start));
+    parts.push(
+      <mark
+        key={start}
+        className={cn(
+          "rounded-sm text-gray-900",
+          start === currentStart ? "bg-amber-300" : "bg-yellow-100",
+        )}
+      >
+        {text.slice(start, end)}
+      </mark>,
+    );
+    position = end;
+  }
+  parts.push(text.slice(position));
+  return parts;
+}
