@@ -23,6 +23,7 @@ Full design, schema, API and data flows: [docs/ARCHITECTURE.md](docs/ARCHITECTUR
 ## Git and GitHub (Claude does all of it)
 
 - Public repo: https://github.com/Ritvik2209/fireflies-clone. Work on `main` only; commit straight to it.
+- **Live:** frontend https://glowworm-plum.vercel.app (Vercel project `glowworm`, root `frontend/`) · backend https://glowworm-api.onrender.com (Render Blueprint service `glowworm-api`). **Both redeploy automatically on every push to `main`**; Render also re-applies `render.yaml`, so change Render settings there, not in the dashboard.
 - The commit identity (the owner's name and email) is set in this repo's local git config. Never change it; never pass `--author`.
 - **Commit small and often:** one commit per small working piece (typically every 15–45 minutes of work), never a whole phase in one commit.
 - **Every commit leaves the project working:** run the relevant lint and tests first. Never commit secrets, `.env` files or `*.db` files.
@@ -223,7 +224,7 @@ npm run build                        # also type-checks
 
 **Part 1: Core**
 - [x] **Phase 0: Repo setup and docs (~1 h).** GitHub repo, `.gitignore`, `CLAUDE.md`, `docs/ARCHITECTURE.md`, `INTERVIEW_PREP.md`.
-- [ ] **Phase 1: Skeleton + early deploy (~1 h).** FastAPI `/api/health`; Next.js shell (sidebar + top bar); both deployed (Render + Vercel) and talking to each other. UI references: `docs/reference/README.md`.
+- [x] **Phase 1: Skeleton + early deploy (~1 h).** FastAPI `/api/health`; Next.js shell (sidebar + top bar); both deployed (Render + Vercel) and talking to each other. UI references: `docs/reference/README.md`.
 - [ ] **Phase 2: Backend core (~3 h).** Core models and relationships, schemas, parsers, summary generator, services, all core routes, seed data, pytest tests. No tags/search/export routes yet.
 - [ ] **Phase 3: Library page (~2 h).** List, title search, participant and date filters, sort, loading and empty states.
 - [ ] **Phase 4: Meeting page (~3 h).** Simulated player, two-way transcript sync, transcript search, summary / keywords / chapters / action-items panels.

@@ -147,7 +147,7 @@ Each piece can be read, tested and changed on its own. Services are called by ro
 | Variable | Used by | Local default | Production |
 |---|---|---|---|
 | `DATABASE_URL` | backend | `sqlite:///./app.db` | same; Render's disk is ephemeral (§10) |
-| `CORS_ORIGINS` | backend, comma-separated | `http://localhost:3000,http://localhost:3001` | the Vercel URL (set in `render.yaml`) |
+| `CORS_ORIGINS` | backend, comma-separated | `http://localhost:3000,http://localhost:3001` | `https://glowworm-plum.vercel.app` (set in `render.yaml`) |
 | `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY` | backend, bonus 6 | unset (chat uses the fallback) | set in Render's dashboard only |
 | `NEXT_PUBLIC_API_URL` | frontend, inlined at build time | `http://localhost:8000` | the Render URL |
 
@@ -847,6 +847,7 @@ flowchart TB
 | | Frontend | Backend |
 |---|---|---|
 | Host | Vercel | Render (free web service) |
+| URL | https://glowworm-plum.vercel.app | https://glowworm-api.onrender.com (docs at `/docs`) |
 | Root directory | `frontend/` | `backend/` |
 | Configured by | Vercel project imported from GitHub (Root Directory `frontend`) | `render.yaml` (Blueprint): free plan, Singapore region, Python 3.12.7 |
 | Deploys | Automatically on every push to `main` | Automatically on every push to `main` (Render also re-applies `render.yaml`) |
