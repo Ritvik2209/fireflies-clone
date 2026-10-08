@@ -18,7 +18,7 @@ Full design, schema, API and data flows: [docs/ARCHITECTURE.md](docs/ARCHITECTUR
   4. time left until the Friday 15:00 IST cut-off.
 
   Then wait for "go".
-- Keep `docs/ARCHITECTURE.md` in step with the code; each bonus phase adds its own data flow. `INTERVIEW_PREP.md` holds the owner's private notes (git-ignored); regenerate it from the final code in Phase 13.
+- Keep `docs/ARCHITECTURE.md` in step with the code; each bonus phase adds its own data flow. `INTERVIEW_PREP.md` holds the owner's private notes (git-ignored); regenerate it from the final code in Phase 13. `INTERVIEW_HIGHLIGHTS.md` (also git-ignored) collects the talking points found while building; add the new ones at the end of every phase.
 
 ## Git and GitHub (Claude does all of it)
 
