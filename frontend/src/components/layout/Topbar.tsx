@@ -1,10 +1,12 @@
 "use client";
 
-import { Search, Settings, Upload } from "lucide-react";
+import { Settings, Upload } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 
 import { sectionTitle } from "@/components/layout/navigation";
+import { TopbarSearch, TopbarSearchPlaceholder } from "@/components/layout/TopbarSearch";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { CURRENT_USER } from "@/lib/currentUser";
@@ -17,18 +19,10 @@ export function Topbar() {
       <h1 className="w-40 shrink-0 truncate text-base text-gray-900">{sectionTitle(pathname)}</h1>
 
       <div className="flex flex-1 justify-center">
-        <label className="relative w-full max-w-md">
-          <span className="sr-only">Search meetings</span>
-          <Search
-            className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-gray-400"
-            aria-hidden
-          />
-          <input
-            type="search"
-            placeholder="Search by title or keyword"
-            className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pr-3 pl-9 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-300 focus:bg-white focus:ring-4 focus:ring-brand-100 focus:outline-none"
-          />
-        </label>
+        {/* The search box reads the URL, so it renders in the browser (see TopbarSearch). */}
+        <Suspense fallback={<TopbarSearchPlaceholder />}>
+          <TopbarSearch />
+        </Suspense>
       </div>
 
       <div className="flex items-center gap-2">
