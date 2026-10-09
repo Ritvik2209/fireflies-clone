@@ -8,6 +8,10 @@ from dataclasses import dataclass
 class Settings:
     database_url: str
     cors_origins: tuple[str, ...]
+    # Bonus 6 chat. No key means no LLM: the chat answers with search results instead.
+    llm_provider: str
+    llm_model: str
+    llm_api_key: str | None
 
 
 def _split_comma_separated(value: str) -> tuple[str, ...]:
@@ -21,6 +25,9 @@ def load_settings() -> Settings:
         cors_origins=_split_comma_separated(
             os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001")
         ),
+        llm_provider=os.environ.get("LLM_PROVIDER", "groq"),
+        llm_model=os.environ.get("LLM_MODEL", "llama-3.3-70b-versatile"),
+        llm_api_key=os.environ.get("LLM_API_KEY") or None,  # only ever set on the server
     )
 
 

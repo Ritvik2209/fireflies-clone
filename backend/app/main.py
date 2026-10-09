@@ -13,6 +13,7 @@ from app.errors import register_exception_handlers
 from app.routers import (
     action_items,
     annotations,
+    chat,
     export,
     health,
     meetings,
@@ -55,6 +56,7 @@ for router in (
     export.router,
     search.router,
     annotations.router,
+    chat.router,
 ):
     app.include_router(router, prefix="/api")
 

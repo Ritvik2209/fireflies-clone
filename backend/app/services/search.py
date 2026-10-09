@@ -1,10 +1,13 @@
 """Global search (bonus 4): every transcript line the user owns, ranked by relevance (FTS5)."""
 
+import re
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models import User
 from app.models.types import UTCDateTime
+from app.services.summary_generator import STOPWORDS
 
 MAX_RESULTS = 50
 
@@ -47,3 +50,41 @@ def search(db: Session, owner: User, raw_query: str) -> list[dict[str, object]]:
         return []
     rows = db.execute(_SEARCH, {"query": query, "owner_id": owner.id, "limit": MAX_RESULTS})
     return [dict(row) for row in rows.mappings()]
+
+
+# Bonus 6: finding the parts of one meeting a chat question is about. Unlike the global search,
+# any meaningful word may match (OR), and stopwords are dropped so "what did they say about
+# pricing" searches for "pricing", not "what" or "they".
+_IN_MEETING = text(
+    """
+    SELECT s.id
+    FROM segments_fts
+    JOIN transcript_segments AS s ON s.id = segments_fts.rowid
+    WHERE segments_fts MATCH :query AND s.meeting_id = :meeting_id
+    ORDER BY bm25(segments_fts)
+    LIMIT :limit
+    """
+)
+
+
+def fts_any_query(raw: str) -> str | None:
+    """The question's meaningful words, quoted and joined with OR, or None if it has none."""
+    words = sorted(
+        {
+            word
+            for word in re.findall(r"[a-z0-9']+", raw.lower())
+            if len(word) >= 3 and word not in STOPWORDS
+        }
+    )
+    if not words:
+        return None
+    return " OR ".join('"' + word.replace('"', '""') + '"' for word in words)
+
+
+def relevant_segment_ids(db: Session, meeting_id: int, raw: str, limit: int) -> list[int]:
+    """Ids of the meeting's lines that best match the question, most relevant first."""
+    query = fts_any_query(raw)
+    if query is None:
+        return []
+    params = {"query": query, "meeting_id": meeting_id, "limit": limit}
+    return list(db.scalars(_IN_MEETING, params))

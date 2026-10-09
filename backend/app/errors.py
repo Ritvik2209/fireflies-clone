@@ -31,6 +31,10 @@ class InvalidInputError(AppError):
     status_code = 422
 
 
+class TooManyRequestsError(AppError):
+    status_code = 429
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(_request: Request, error: AppError) -> JSONResponse:
