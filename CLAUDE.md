@@ -355,7 +355,7 @@ frontend/src/
   - **Versions:** Python 3.12.7, as on Render. Node comes from `"engines": {"node": "22.x"}` in `frontend/package.json`, which Vercel also honours; the lockfile root has the same entry.
   - **Backend job:** installs `requirements-dev.txt` (runtime deps plus ruff, pytest and httpx), then runs `ruff check`, `ruff format --check` and `pytest`.
   - **Frontend job:** `npm ci`, `npm run lint`, `npm run format:check`, `npx next typegen` (route types for tsc), `npx tsc --noEmit` and `npm run build`.
-  - **Deploys:** they don't wait for CI (Vercel and Render build in parallel). After every push, confirm the run is green.
+  - **Deploys:** they don't wait for CI. Vercel builds every push, and Render builds pushes that change `backend/`, both in parallel with CI. After every push, confirm the run is green.
 - **Phase 12 (chat) implementation choices** (details in ARCHITECTURE.md §9.6):
   - **Provider:** Groq through `openai==3.26.1` (base URL `https://api.groq.com/openai/v1`), default model `openai/gpt-oss-120b`, a reasoning model asked for `reasoning_effort="low"` (left out for other models). The first choice, `llama-3.3-70b-versatile`, has been Enterprise-only since 16 Aug 2026.
   - **Key handling:** `render.yaml` sets the provider and model; `LLM_API_KEY` is `sync: false` (dashboard only). Without a key, the chat uses the search fallback. The key is whitespace-stripped, and `/api/health` reports `llm_configured` (never the key).
