@@ -1,3 +1,4 @@
+from app.models.annotations import HighlightColor
 from app.schemas.base import ORMModel
 
 
@@ -10,3 +11,5 @@ class SegmentOut(ORMModel):
     start_ms: int
     end_ms: int
     text: str
+    highlight_color: HighlightColor | None  # bonus 5: the current user's highlight
+    comment_count: int  # bonus 5

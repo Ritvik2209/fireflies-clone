@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 if TYPE_CHECKING:
+    from app.models.annotations import Highlight, SegmentComment
     from app.models.meeting import Meeting
     from app.models.participant import Participant
 
@@ -32,3 +33,23 @@ class TranscriptSegment(Base):
 
     meeting: Mapped["Meeting"] = relationship(back_populates="segments")
     speaker: Mapped["Participant"] = relationship(back_populates="segments")
+    # Bonus 5. passive_deletes: deleting a meeting doesn't load every line's annotations just to
+    # delete them; the database's ON DELETE CASCADE removes them.
+    highlights: Mapped[list["Highlight"]] = relationship(
+        back_populates="segment", cascade="all, delete-orphan", passive_deletes=True
+    )
+    comments: Mapped[list["SegmentComment"]] = relationship(
+        back_populates="segment",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="SegmentComment.id",
+    )
+
+    @property
+    def highlight_color(self) -> str | None:
+        """This line's highlight. Only the meeting's owner can open it, so there's at most one."""
+        return self.highlights[0].color if self.highlights else None
+
+    @property
+    def comment_count(self) -> int:
+        return len(self.comments)

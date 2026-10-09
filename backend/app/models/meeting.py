@@ -12,6 +12,7 @@ from app.models.types import UTCDateTime, utc_now
 
 if TYPE_CHECKING:
     from app.models.action_item import ActionItem
+    from app.models.annotations import Soundbite
     from app.models.participant import Participant
     from app.models.summary import Chapter, Summary
     from app.models.tag import Tag
@@ -60,4 +61,7 @@ class Meeting(Base):
     )
     action_items: Mapped[list["ActionItem"]] = relationship(
         back_populates="meeting", cascade="all, delete-orphan", order_by="ActionItem.id"
+    )
+    soundbites: Mapped[list["Soundbite"]] = relationship(
+        back_populates="meeting", cascade="all, delete-orphan", order_by="Soundbite.start_ms"
     )

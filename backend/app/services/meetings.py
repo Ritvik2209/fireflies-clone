@@ -33,6 +33,11 @@ _DETAIL_OPTIONS = (
     selectinload(Meeting.summary),
     selectinload(Meeting.chapters),
     selectinload(Meeting.action_items),
+    # Bonus 5: each line's highlight and comments (for highlight_color and comment_count),
+    # one query each for the whole transcript, and the meeting's soundbites.
+    selectinload(Meeting.segments).selectinload(TranscriptSegment.highlights),
+    selectinload(Meeting.segments).selectinload(TranscriptSegment.comments),
+    selectinload(Meeting.soundbites),
 )
 
 

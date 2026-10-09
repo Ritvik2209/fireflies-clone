@@ -11,6 +11,7 @@ from pydantic import (
 )
 
 from app.schemas.action_item import ActionItemOut
+from app.schemas.annotations import SoundbiteOut
 from app.schemas.base import ORMModel
 from app.schemas.participant import ParticipantOut
 from app.schemas.summary import ChapterOut, SummaryOut
@@ -84,3 +85,4 @@ class MeetingDetail(MeetingListItem):
     summary: SummaryOut | None
     chapters: list[ChapterOut]
     action_items: list[ActionItemOut]
+    soundbites: list[SoundbiteOut]  # bonus 5
