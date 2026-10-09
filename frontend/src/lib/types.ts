@@ -115,6 +115,18 @@ export interface ActionItemUpdateInput {
   is_completed?: boolean;
 }
 
+/** One matching transcript line from GET /api/search (bonus 4). */
+export interface SearchResult {
+  segment_id: number;
+  meeting_id: number;
+  meeting_title: string;
+  meeting_date: string;
+  speaker_name: string;
+  speaker_color: AvatarColor;
+  start_ms: number;
+  snippet: string; // matches are wrapped in  … 
+}
+
 /** GET /api/meetings/{id}/export (bonus 3) */
 export type ExportContent = "transcript" | "summary";
 export type ExportFormat = "pdf" | "txt" | "md";

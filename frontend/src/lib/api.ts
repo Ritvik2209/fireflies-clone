@@ -12,6 +12,7 @@ import type {
   MeetingQuery,
   MeetingUpdateInput,
   Participant,
+  SearchResult,
   Tag,
 } from "@/lib/types";
 
@@ -148,4 +149,9 @@ export async function downloadExport(
   const header = response.headers.get("Content-Disposition") ?? "";
   const filename = /filename="([^"]+)"/.exec(header)?.[1] ?? `meeting-${content}.${format}`;
   return { blob: await response.blob(), filename };
+}
+
+/** Full-text search across every transcript (bonus 4), best matches first. */
+export function searchTranscripts(query: string, signal?: AbortSignal): Promise<SearchResult[]> {
+  return request<SearchResult[]>(`/search?q=${encodeURIComponent(query)}`, { signal });
 }

@@ -7,21 +7,23 @@ import { type FormEvent, useState } from "react";
 import { replaceSearchParams } from "@/lib/url";
 
 const LIBRARY = "/meetings";
+const SEARCH = "/search";
+const PLACEHOLDER = "Search meetings and transcripts";
 const INPUT_CLASSES =
   "h-9 w-full rounded-lg border border-gray-200 bg-gray-50 pr-3 pl-9 text-sm text-gray-900 " +
   "placeholder:text-gray-400 focus:border-brand-300 focus:bg-surface focus:ring-4 " +
   "focus:ring-brand-100 focus:outline-none";
 
 /**
- * The title search. On the library it filters as you type (by updating ?q= in the URL);
- * elsewhere, Enter opens the library with the search applied.
+ * The search box. On the library (titles) and the search page (transcripts) it updates ?q= as
+ * you type; Enter anywhere else, and on the library, opens the global search page.
  */
 export function TopbarSearch() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const onLibrary = pathname === LIBRARY;
-  const urlQuery = onLibrary ? (searchParams.get("q") ?? "") : "";
+  const live = pathname === LIBRARY || pathname === SEARCH; // pages that read ?q= themselves
+  const urlQuery = live ? (searchParams.get("q") ?? "") : "";
 
   // While typing, the box shows what you type; otherwise it shows the URL's search, so it stays
   // in sync with "Clear filters", reloads and shared links.
@@ -30,19 +32,19 @@ export function TopbarSearch() {
 
   function handleChange(value: string) {
     setDraft(value);
-    if (onLibrary) replaceSearchParams({ q: value.trim() || null });
+    if (live) replaceSearchParams({ q: value.trim() || null });
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = draft.trim();
-    if (!onLibrary) router.push(query ? `${LIBRARY}?q=${encodeURIComponent(query)}` : LIBRARY);
+    if (query && pathname !== SEARCH) router.push(`${SEARCH}?q=${encodeURIComponent(query)}`);
   }
 
   return (
     <form role="search" onSubmit={handleSubmit} className="relative w-full max-w-md">
       <label htmlFor="topbar-search" className="sr-only">
-        Search meetings by title
+        {PLACEHOLDER}
       </label>
       <Search
         aria-hidden
@@ -51,7 +53,7 @@ export function TopbarSearch() {
       <input
         id="topbar-search"
         type="search"
-        placeholder="Search meetings by title"
+        placeholder={PLACEHOLDER}
         autoComplete="off"
         className={INPUT_CLASSES}
         value={focused ? draft : urlQuery}
@@ -78,7 +80,7 @@ export function TopbarSearchPlaceholder() {
         disabled
         aria-hidden
         tabIndex={-1}
-        placeholder="Search meetings by title"
+        placeholder={PLACEHOLDER}
         className={INPUT_CLASSES}
       />
     </div>

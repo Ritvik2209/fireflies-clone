@@ -27,6 +27,7 @@ export function isActive(pathname: string, href: string): boolean {
 
 /** Title of the current section, shown in the top bar. */
 export function sectionTitle(pathname: string): string {
+  if (pathname === "/search") return "Search";
   const item = [...PRIMARY_NAV, ...SECONDARY_NAV].find(({ href }) => isActive(pathname, href));
   return item?.label ?? "";
 }
