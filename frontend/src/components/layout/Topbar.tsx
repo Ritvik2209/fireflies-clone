@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
 
-import { MobileNav } from "@/components/layout/MobileNav";
+import { NavDrawer } from "@/components/layout/NavDrawer";
 import { sectionTitle } from "@/components/layout/navigation";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TopbarSearch, TopbarSearchPlaceholder } from "@/components/layout/TopbarSearch";
@@ -22,17 +22,17 @@ export function Topbar() {
   const pathname = usePathname();
   const [creating, setCreating] = useState(false); // the New meeting modal is open
   const [created, setCreated] = useState<MeetingListItem[]>([]); // being processed (Extra 3)
-  const [menuOpen, setMenuOpen] = useState(false); // the navigation drawer, below lg
+  const [menuOpen, setMenuOpen] = useState(false); // the navigation drawer, on phones
   const tour = useTour();
 
   return (
     <header className="flex h-[60px] shrink-0 items-center gap-2 border-b border-gray-200 bg-surface px-3 sm:gap-4 sm:px-6">
-      {/* Below lg there's no sidebar: this opens it as a drawer. */}
+      {/* Phones have no icon rail: this opens the sidebar as a drawer. */}
       <IconButton
         icon={Menu}
         label="Open menu"
         iconClassName="size-5"
-        className="size-9 lg:hidden"
+        className="size-9 md:hidden"
         onClick={() => setMenuOpen(true)}
       />
       <h1 className="hidden w-40 shrink-0 truncate text-base text-gray-900 md:block">
@@ -87,7 +87,7 @@ export function Topbar() {
           onCreated={(meeting) => setCreated((current) => [...current, meeting])}
         />
       )}
-      {menuOpen && <MobileNav onClose={() => setMenuOpen(false)} />}
+      {menuOpen && <NavDrawer onClose={() => setMenuOpen(false)} />}
       {created.map((meeting) => (
         <ProcessingWatcher key={meeting.id} meeting={meeting} />
       ))}
