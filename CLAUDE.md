@@ -214,6 +214,15 @@ frontend/src/
     - Edit and delete icons show on hover or keyboard focus.
     - The header's Add is disabled while the add form is open (the form's button says "Add item").
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
+- **Phase 11 (annotations) implementation choices** (details in ARCHITECTURE.md §9.5):
+  - **Detail payload:** `highlight_color`/`comment_count` are model properties on `TranscriptSegment`, fed by two chained `selectinload`s, instead of a GROUP BY query. Soundbites ride along.
+  - **Highlights:** PUT upserts; DELETE is idempotent (204).
+  - **Comments and soundbites:** only the author edits their comments. Soundbites can be renamed only.
+  - **Ownership:** every lookup joins to the meeting's owner (404 otherwise).
+  - **Comments UI:** `CommentThread` opens inline under its line (one at a time), rather than as a floating popover.
+  - **Soundbites UI:** created from a line's scissors, or with **New** at the player's time. The dialog has `mm:ss` fields with **Now** buttons; this replaces the planned mark start/end buttons.
+  - **Playback:** `usePlayer.playRange()` uses a `stopAt` ref, cleared by play, pause and seek. `positionNow()` is exposed so "New" reads the exact time without re-rendering the memoised notes panel.
+  - **Tests:** the browser scripts now find the player's time with the `' / '` text, because soundbite ranges also use `.tabular-nums`.
 - **Phase 10 (global search) implementation choices** (details in ARCHITECTURE.md §9.4):
   - **Backend:** `GET /search?q=` with FTS5.
     - Each word is double-quoted ("all these words"); input with no words returns `[]`.
@@ -353,7 +362,7 @@ npm run build                        # also type-checks
 - [x] **Phase 8: Tags + filtering (~1.25 h)**
 - [x] **Phase 9: Export TXT / Markdown / PDF (~1 h)**
 - [x] **Phase 10: Global search, FTS5 (~1.25 h)**
-- [ ] **Phase 11: Comments, highlights, soundbites (~2.5 h)**
+- [x] **Phase 11: Comments, highlights, soundbites (~2.5 h)**
 - [ ] **Phase 12: "Ask about this meeting" chat (~2 h).** Before starting, ask the owner which LLM provider to use and to add the key on Render.
 
 **Hard cut-off: Friday 15:00 IST.** A bonus still in progress then is finished within 15 minutes or reverted; then move to Phase 13. Never leave a half-built bonus in the deployed app.

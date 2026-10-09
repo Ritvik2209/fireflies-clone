@@ -106,9 +106,9 @@ flowchart LR
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
 | `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1), `AppToaster` (where toasts appear; follows the theme). The top bar's New meeting button opens `CreateMeetingModal`. |
 | `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips), `TagPicker` (bonus 2: toggle and create tags in the edit modal). |
-| `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportDialog` (3: the download dialog, opened from the player bar), `HighlightsList`, `CommentThread`, `SoundbitesList` (5), `AskPanel` (6). |
+| `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportDialog` (3: the download dialog, opened from the player bar), `HighlightsList`, `CommentThread` (inline under a line), `SoundbitesList`, `SoundbiteDialog` (5), `AskPanel` (6). |
 | `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal` (on the native `<dialog>`), `Field` (label and hint), `Input` (and styled native `Select` and `Textarea`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
-| `hooks/` | `usePlayer` (virtual clock), `useDebounce`. |
+| `hooks/` | `usePlayer` (virtual clock; `playRange` for soundbites), `useDebounce`, `useAnnotationActions` (bonus 5: stable save-and-update handlers). |
 | `lib/transcript.ts` | Pure functions: `findActiveIndex` (binary search for the line or chapter playing at a given time), `findMatches` and `groupMatchesByLine` (transcript search). They aren't hooks, because they hold no state. |
 | `lib/api.ts` | The only module that calls `fetch`: one typed function per endpoint; throws an `ApiError` carrying the server's `detail` message. |
 | `lib/types.ts` | TypeScript types that mirror the API's response models. |
@@ -989,14 +989,44 @@ It's raw SQL through `text()`, because SQLAlchemy has no model for virtual table
 - the insert and delete triggers keep the index in sync;
 - the startup rebuild re-indexes after a `'delete-all'`.
 
-### 9.5 Comments, highlights, soundbites (Phase 11)
+### 9.5 Comments, highlights, soundbites (Phase 11, built)
 
-- **Highlights:** `PUT /segments/{id}/highlight {color}` creates or changes the current user's highlight (upsert on `UNIQUE (segment_id, user_id)`); `DELETE` removes it. Highlighted lines show their colour in the transcript; `HighlightsList` in the side panel lists them in transcript order, and clicking one seeks.
-- **Comments:** `GET, POST /segments/{id}/comments`, `PATCH, DELETE /comments/{id}`, written by the default user. Each line shows a comment icon with its count; clicking it opens `CommentThread`, a small popover for reading, adding, editing and deleting comments.
-- **Soundbites:** `GET, POST /meetings/{id}/soundbites`, `PATCH (rename), DELETE /soundbites/{id}`. A soundbite is created from a line (its start and end) or from the player ("mark start" / "mark end" at the current time). The service rejects `end_ms > duration_ms` (422). Clicking one in `SoundbitesList` calls `playRange(start, end)`: seek to the start, play, and pause automatically at the end.
-- **Payload without N+1:** the meeting detail gains, per segment, the current user's `highlight_color` and a `comment_count`, computed with one query for highlights and one `GROUP BY segment_id` query for counts, plus the `soundbites` list.
-- **Deletes:** deleting a meeting cascades through its segments to their highlights and comments; segment-level relationships use `passive_deletes=True` (§6.7).
-- Seed data gains a few highlights, comments and soundbites across the meetings.
+**Schema:** `models/annotations.py`, with the CHECKs and UNIQUE of §6.4.
+- **`highlights`:** one per user and line, colour yellow/green/blue/pink.
+- **`segment_comments`:** text, author, timestamps.
+- **`soundbites`:** a titled range, where `end_ms > start_ms ≥ 0`. A CHECK can't read the meeting's length, so the service also checks `end_ms ≤ duration_ms`.
+- **Relationships:** `TranscriptSegment.highlights` and `.comments` use `cascade="all, delete-orphan", passive_deletes=True`, so deleting a meeting doesn't load every line's annotations; the database's `ON DELETE CASCADE` removes them (tested). `Meeting.soundbites` is ordered by `start_ms`.
+
+**API** (`routers/annotations.py` → `services/annotations.py`). Every lookup goes through the meeting's owner, so anyone else's line, comment or soundbite is a 404.
+- `PUT /segments/{id}/highlight {color}`: upsert. A second PUT changes the colour; the UNIQUE `(segment_id, user_id)` keeps it to one row.
+- `DELETE /segments/{id}/highlight` → 204, even if there was none (idempotent).
+- `GET, POST /segments/{id}/comments`, and `PATCH, DELETE /comments/{id}`. Only the author's own comments can be changed. Each comment includes `author_name`, loaded with `selectinload` so a list doesn't cause N+1 queries.
+- `GET, POST /meetings/{id}/soundbites`, `PATCH /soundbites/{id}` (rename only) and `DELETE`. A backwards range is 422 from the schema; one ending after the meeting is 422 from the service.
+- **The meeting detail** gains each line's `highlight_color` and `comment_count`, and the meeting's `soundbites`. They're model properties computed from two extra `selectinload` queries (the lines' highlights and comments) for the whole transcript, so still no N+1.
+
+**Frontend:**
+- **Line actions** (`TranscriptLine`, shown on hover or keyboard focus):
+  - a highlighter opens four swatches, plus "remove";
+  - scissors opens `SoundbiteDialog` prefilled with the line's range;
+  - a comment button shows its count and stays visible once there are comments.
+  - The highlight colours the line's left border and background; the playing line's background wins, and the border keeps the colour.
+  - Actions stop click propagation, so they never seek.
+- **`CommentThread`** opens **inline under the line** (not as a floating popover, so no positioning code). It loads on open; add, edit and delete each toast and report the new count, which keeps the badge right. One thread is open at a time.
+- **Notes panel:**
+  - `HighlightsList` shows the highlighted lines in transcript order; a click seeks.
+  - `SoundbitesList` has Play, Delete and **New**.
+- **`SoundbiteDialog`** takes a title and a start and end typed as `mm:ss`, each with a **Now** button that uses the player's time. It applies the API's rules as you type.
+  - New soundbites come from a line, or **New** starts one at the player's current time (30 s, adjustable).
+- **`usePlayer.playRange(start, end)`** plays only the range: a `stopAt` ref is checked every frame, and play, pause and seek clear it. The scripted test plays a 3-second clip and checks that the player stops at its end.
+- **`useAnnotationActions`** holds the stable handlers that save and update the loaded meeting. A highlight is optimistic and undone on failure.
+
+**Seed:** three demo meetings get highlights, comments and soundbites, referring to lines by start time. The seed test checks every soundbite lies inside its meeting.
+
+**Tests:** `tests/test_annotations_api.py` covers:
+- upsert, idempotent removal, a bad colour, an unknown line;
+- the comment lifecycle, with author and count;
+- soundbite range rules and ordering;
+- cascades when a meeting is deleted.
 
 ### 9.6 "Ask about this meeting" chat (Phase 12)
 
