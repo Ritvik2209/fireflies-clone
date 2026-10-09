@@ -3,17 +3,19 @@
 import { Settings, Upload } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 
 import { sectionTitle } from "@/components/layout/navigation";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TopbarSearch, TopbarSearchPlaceholder } from "@/components/layout/TopbarSearch";
+import { CreateMeetingModal } from "@/components/meetings/CreateMeetingModal";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { CURRENT_USER } from "@/lib/currentUser";
 
 export function Topbar() {
   const pathname = usePathname();
+  const [creating, setCreating] = useState(false); // the New meeting modal is open
 
   return (
     <header className="flex h-[60px] shrink-0 items-center gap-4 border-b border-gray-200 bg-surface px-6">
@@ -35,7 +37,9 @@ export function Topbar() {
         >
           <Settings className="size-5" aria-hidden />
         </Link>
-        <Button icon={Upload}>New meeting</Button>
+        <Button icon={Upload} onClick={() => setCreating(true)}>
+          New meeting
+        </Button>
         <Link
           href="/settings"
           aria-label={`Profile: ${CURRENT_USER.name}`}
@@ -45,6 +49,7 @@ export function Topbar() {
           <Avatar name={CURRENT_USER.name} color={CURRENT_USER.avatarColor} />
         </Link>
       </div>
+      {creating && <CreateMeetingModal onClose={() => setCreating(false)} />}
     </header>
   );
 }
