@@ -1,6 +1,13 @@
 # Architecture
 
-> **Status: updated after Phase 7 (dark mode).** The backend core (database, parsers, summary generator, services, API, seed data, tests), the frontend shell, the meetings library, the meeting page (player, transcript sync and search, notes) and dark mode (§9.1, built before Phase 5 at the owner's request) are built and deployed; names below match the code. The create/edit flows and action-item editing (§8.6, §8.7) are still the plan for Phase 5. The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
+> **Status: updated after Phase 5.** Every core feature is built and deployed:
+> - the backend core (database, parsers, summary generator, services, API, seed data, tests);
+> - the meetings library;
+> - the meeting page (player, transcript sync and search, notes);
+> - creating, editing and deleting meetings and action items, with toasts (§8.6–8.8);
+> - dark mode (§9.1, built before Phase 5 at the owner's request).
+>
+> Names below match the code. Phase 6 verifies the Core Gate on the live app. The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
 
 **Contents:** [1. Overview](#1-system-overview) · [2. Stack](#2-tech-stack) · [3. Repository layout](#3-repository-layout) · [4. Backend](#4-backend) · [5. Frontend](#5-frontend) · [6. Database](#6-database) · [7. API](#7-api) · [8. Core data flows](#8-core-data-flows) · [9. Bonus features](#9-bonus-features) · [10. Deployment](#10-deployment) · [11. Assumptions and trade-offs](#11-assumptions-and-trade-offs)
 
@@ -96,10 +103,10 @@ flowchart LR
 | `app/meetings/[id]/page.tsx` | Meeting page: notes, transcript and player. |
 | `app/search/page.tsx` | Global search results (bonus 4). |
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
-| `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1). |
-| `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`; `CreateMeetingModal`, `EditMeetingModal` (Phase 5). |
-| `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`. Bonuses: `ExportMenu` (3), `HighlightsList`, `CommentThread`, `SoundbitesList` (5), `AskPanel` (6). |
-| `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal`, `Input` (and a styled native `Select`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
+| `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1), `AppToaster` (where toasts appear; follows the theme). The top bar's New meeting button opens `CreateMeetingModal`. |
+| `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips). |
+| `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportMenu` (3), `HighlightsList`, `CommentThread`, `SoundbitesList` (5), `AskPanel` (6). |
+| `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal` (on the native `<dialog>`), `Field` (label and hint), `Input` (and styled native `Select` and `Textarea`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
 | `hooks/` | `usePlayer` (virtual clock), `useDebounce`. |
 | `lib/transcript.ts` | Pure functions: `findActiveIndex` (binary search for the line or chapter playing at a given time), `findMatches` and `groupMatchesByLine` (transcript search). They aren't hooks, because they hold no state. |
 | `lib/api.ts` | The only module that calls `fetch`: one typed function per endpoint; throws an `ApiError` carrying the server's `detail` message. |
@@ -239,7 +246,10 @@ The root layout renders the shell once: `Sidebar` (navigation) and `Topbar` (sea
 - **Cold starts:** if loading takes more than 4 seconds, a note explains that the free server is waking up (it can take up to a minute).
 - **Why fetch in the browser rather than in server components:** the meeting page is interactive anyway (player, sync, search); Render's free tier can take up to about a minute to wake up, and a skeleton is better than a server render that hangs; reads and writes share one code path.
 - **Stale responses:** each request gets an `AbortController`. When filters change, the effect's cleanup aborts the previous request, so a slow old response can never overwrite a newer one. Typed search text waits for `useDebounce` (~300 ms after the last keystroke) before it triggers a request.
-- **After a mutation** the page updates its local state from the response (or navigates away) and shows a toast.
+- **After a mutation** the page updates its local state from the response (or navigates away) and shows a toast; errors toast the server's `detail` message.
+  - `MeetingView` holds the loaded meeting and hands down `onChange(update)`. Changes are functions of the current meeting, so two quick changes can't overwrite each other.
+  - Ticking an action item is optimistic and rolls back if the request fails.
+  - `lib/api.ts` returns nothing for 204 responses (DELETE has no body).
 
 ### 5.3 The meeting page: player and transcript sync
 
@@ -817,9 +827,13 @@ sequenceDiagram
     M->>U: success toast, navigate to /meetings/new-id
 ```
 
-1. "Upload / New meeting" in the top bar opens `CreateMeetingModal`: title, date and time, participants, and either **Upload file** or **Paste text**.
-2. When a file is chosen, the browser reads it with `await file.text()`, takes the format from the extension (`.txt`, `.vtt`, `.json`) and rejects files over the size limit.
-3. Submit calls `api.createMeeting({ title, meeting_date, participant_names, transcript_text, format, source: "upload" })`, with the date converted from local time to UTC.
+1. **New meeting** in the top bar opens `CreateMeetingModal`. It asks for:
+   - a title;
+   - the date and time (a `datetime-local` input, defaulting to now);
+   - participants, as chips (optional: speakers are added automatically);
+   - and either **Upload file** or **Paste text**.
+2. A file can be picked or dragged in. The browser reads it with `await file.text()`, takes the format from the extension (`.txt`, `.vtt`, `.json`) and rejects other types and files over 1 MB. If the title is still empty, it's prefilled from the file name. Pasted text comes with a format chosen from a dropdown.
+3. Submit calls `createMeeting({ title, meeting_date, participant_names, transcript_text, format, source: "upload" | "paste" })`, with the local date converted to UTC (`new Date(value).toISOString()`).
 4. `routers/meetings.py` validates the body against `MeetingCreate` (title length, format enum, non-empty text, maximum length): 422 if invalid.
 5. `services/meetings.create_meeting()`:
    1. `parse_transcript(text, format)`: the dispatcher picks the txt, vtt or json parser and returns `list[ParsedSegment]`, or raises `TranscriptParseError` ("Line 4: expected '[HH:MM:SS] Speaker Name: text' or 'Speaker Name: text'"), which becomes a 422.
@@ -839,6 +853,21 @@ sequenceDiagram
 3. `PATCH /api/action-items/{id}`: the service loads the item through its meeting (404 if missing or not the user's), applies only the fields that were sent, and commits; `updated_at` changes.
 4. The API answers 200 with the updated item. The list replaces its copy with the server's version, and a toast confirms.
 5. On error, the checkbox flips back and an error toast explains why.
+
+Adding, editing (text and assignee, inline with `ActionItemForm`) and deleting work the same way. Each change is saved first, then applied to the list with a toast. If saving fails, the form stays open with what the user typed.
+
+### 8.8 Editing and deleting a meeting
+
+1. The meeting header's **Edit** opens `EditMeetingModal`, prefilled with the title and the participants as chips.
+   - People who speak in the transcript have no remove button. The API would answer 409 for them, so the UI doesn't offer it.
+   - Names can be added with Enter or a comma, with suggestions from `GET /participants` (a native `<datalist>`).
+2. **Save** sends only what changed: `PATCH /api/meetings/{id}` with `title` and/or `participant_names`, the full new list.
+   - The service replaces the participant links. Action items assigned to someone who was removed become unassigned.
+   - The API answers with the full `MeetingDetail`.
+3. `MeetingView` swaps in the returned meeting through `onChange(() => updated)`. The workspace keeps its key (the same id), so the player keeps playing. A toast says "Meeting updated".
+4. **Delete** opens `DeleteMeetingDialog`: "Delete '<title>'?" with **Keep it** (focused, so a reflexive Enter is safe) and **Delete**.
+5. `DELETE /api/meetings/{id}` returns 204, and the database cascades to segments, notes and action items. A toast confirms, and the app goes back to `/meetings`, which refetches the list.
+6. Errors toast the server's `detail`, and the dialog stays open.
 
 ## 9. Bonus features
 

@@ -190,6 +190,27 @@ frontend/src/
     - Action items are grouped by assignee and read-only until Phase 5. Their timestamp seeks.
     - The notes show whether they're hand-written seed notes or generated from the transcript.
   - **Not yet:** `?t=` deep links arrive with global search (bonus 4).
+- **Phase 5 implementation choices** (details in ARCHITECTURE.md §5.2, §8.6–8.8):
+  - **Toasts:** `sonner` via `AppToaster` (bottom right, follows the theme). Every create/update/delete toasts success, and every failure toasts the server's `detail`.
+  - **Modals:** `Modal` uses the native `<dialog>` with `showModal()` (focus trap, Escape, backdrop for free).
+    - Escape and Close go through the parent's `onClose`, so a running request can block closing.
+    - Clicking the backdrop doesn't close it, so forms aren't lost.
+    - `data-autofocus` picks the first focus; Delete focuses **Keep it**.
+  - **New meeting** (top bar) → `CreateMeetingModal`:
+    - a file is picked or dropped, read in the browser, and checked for format by extension and size (≤ 1 MB);
+    - the title is prefilled from the file name; pasted text comes with a format dropdown;
+    - `datetime-local` → UTC.
+    - Success → toast and navigate to the meeting. Failure → toast, and the form keeps its input.
+  - **`ParticipantsInput`:**
+    - Names are chips: Enter or a comma adds one, Backspace removes the last, and leaving the field adds what was typed.
+    - Suggestions come from a native `<datalist>`.
+    - In the Edit modal, speakers are locked, mirroring the API's 409 rule.
+  - **Meeting header:** Edit (PATCH only what changed) and Delete (confirm, then back to the library). `MeetingView` owns the loaded meeting and passes down `onChange(update)` (functional updates), so edits and action-item changes apply without a refetch, and the player keeps running.
+  - **Action items:**
+    - Tick (optimistic, with rollback), inline edit of text and assignee (`ActionItemForm`), add and delete.
+    - Edit and delete icons show on hover or keyboard focus.
+    - The header's Add is disabled while the add form is open (the form's button says "Add item").
+  - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
 - **Phase 7 (dark mode) implementation choices** (details in ARCHITECTURE.md §9.1):
   - **Palette swap:** under `.dark` the neutral colour tokens get dark values (`@layer base` in `globals.css`), instead of a `dark:` class on every element.
     - The grey scale is mirrored, so each step keeps its role.
@@ -294,7 +315,7 @@ npm run build                        # also type-checks
 - [x] **Phase 2: Backend core (~3 h).** Core models and relationships, schemas, parsers, summary generator, services, all core routes, seed data, pytest tests. No tags/search/export routes yet.
 - [x] **Phase 3: Library page (~2 h).** List, title search, participant and date filters, sort, loading and empty states.
 - [x] **Phase 4: Meeting page (~3 h).** Simulated player, two-way transcript sync, transcript search, summary / keywords / chapters / action-items panels.
-- [ ] **Phase 5: CRUD UI + Fireflies experience (~2 h).** Create (upload/paste), edit, delete, action-item management, toasts, placeholder pages, UI pass against the screenshots.
+- [x] **Phase 5: CRUD UI + Fireflies experience (~2 h).** Create (upload/paste), edit, delete, action-item management, toasts, placeholder pages, UI pass against the screenshots.
 - [ ] **Phase 6: Core deploy + verification (~45 min).** Deploy, walk the Core Gate on the live link, write the README's core sections, fix anything that fails. Report, then wait for "go".
 
 **Part 2: Bonuses.** Each is its own phase: small commits, its tests, seed updates if relevant, ARCHITECTURE.md data flow, re-check the core, deploy, stop for "go".
