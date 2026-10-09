@@ -25,7 +25,7 @@ flowchart LR
         api["FastAPI on uvicorn<br/>routers → services → models"]
         db[("SQLite file<br/>tables + FTS5 index")]
     end
-    llm["LLM provider API<br/>Anthropic or OpenAI"]
+    llm["LLM provider API<br/>Groq (OpenAI-compatible)"]
     browser -- "1 · loads pages and JavaScript" --> fe
     browser -- "2 · JSON over HTTPS to /api/* (CORS)" --> api
     api -- "SQLAlchemy 2.0 (sync)" --> db
@@ -48,7 +48,7 @@ flowchart LR
 | ORM | SQLAlchemy 2.1 (the 2.0-style typed API), sync | Explicit, typed models with relationships and cascades. Sync because SQLite is a local file: async would add complexity without a real I/O benefit. |
 | Database | SQLite + FTS5 | Zero-ops single file. FTS5 is built into SQLite and gives ranked full-text search without another service. |
 | PDF export (bonus 3) | `fpdf2` | Pure Python with no system libraries, so it installs on Render as-is. |
-| LLM (bonus 6) | One official SDK: `anthropic` or `openai` (the owner chooses at Phase 12) | Called only from `backend/app/llm/`, so switching providers touches one module. |
+| LLM (bonus 6) | Groq, through the official `openai` SDK (Groq's API is OpenAI-compatible; the owner chose it in Phase 12) | Called only from `backend/app/llm/client.py`, so switching providers touches one module; `LLM_PROVIDER=openai` already works. |
 | Quality | pytest + httpx (`TestClient`), ruff; ESLint + Prettier | Tests for the parsers, the summary generator and key endpoints; one linter/formatter per language. |
 
 ## 3. Repository layout
@@ -1028,30 +1028,58 @@ It's raw SQL through `text()`, because SQLAlchemy has no model for virtual table
 - soundbite range rules and ordering;
 - cascades when a meeting is deleted.
 
-### 9.6 "Ask about this meeting" chat (Phase 12)
+### 9.6 "Ask about this meeting" chat (Phase 12, built)
 
 ```mermaid
 flowchart TB
     question["POST /meetings/7/chat with a question"] --> checks["validate length (422)<br/>and rate limit (429)"]
-    checks --> context["build context: summary +<br/>timestamped transcript lines"]
-    context --> fits{"fits the<br/>size budget?"}
+    checks --> context["context: summary + '[mm:ss] Speaker: text' lines"]
+    context --> fits{"fits 24,000<br/>characters?"}
     fits -- "yes" --> full["whole transcript"]
-    fits -- "no" --> retrieve["FTS5: most relevant segments<br/>in this meeting"]
-    full --> key{"LLM key set and<br/>call succeeds?"}
+    fits -- "no" --> retrieve["FTS5 (words OR'ed, no stopwords): best 12 lines<br/>of this meeting + their neighbours, in time order"]
+    full --> key{"LLM key set and<br/>Groq call succeeds?"}
     retrieve --> key
-    key -- "yes" --> answer["LLM answer citing timestamps<br/>answered_by = llm"]
-    key -- "no" --> fallback["'Relevant moments' from FTS5<br/>answered_by = fallback"]
-    answer --> store["store question + answer, return 201"]
+    key -- "yes" --> answer["answer citing [mm:ss]<br/>answered_by = llm"]
+    key -- "no" --> fallback["'Relevant moments' from FTS5 (or the overview<br/>if no line matches) · answered_by = fallback"]
+    answer --> store["store question + answer in one commit, return 201"]
     fallback --> store
 ```
 
-- **Prompt (`llm/prompts.py`):** a system message telling the model to answer only from the transcript, to say so when the answer isn't there, and to cite `[mm:ss]` timestamps; then the summary, the transcript lines (delimited, and described as data rather than instructions), the last few chat turns, and the question.
-- **Too long for the context window:** above a size budget, only the most relevant segments go in, found with the FTS5 index (question words minus stopwords, quoted and joined with `OR`, restricted to this meeting), plus their neighbouring lines for context, in time order.
-- **Fallback:** with no key, or if the provider call fails or times out, the answer is a "Relevant moments" list of the top FTS5 matches as `[mm:ss] Speaker: text` lines, stored with `answered_by = "fallback"`. The deployed demo never breaks.
-- **Rendering:** `AskPanel` splits answers on `[mm:ss]` / `[h:mm:ss]` patterns into text and buttons that call `seek()`; nothing is rendered as HTML.
-- **Limits and secrets:** the question is capped in length (422); a per-meeting limit on questions per minute is counted from `chat_messages` (429); output length is capped. The key exists only as a Render environment variable, is read by `config.py`, and never reaches the frontend or the repo.
-- **History:** `GET` returns the meeting's messages in order; `POST` stores the question and the answer in one transaction; `DELETE` clears the history (204).
-- **Isolation:** `llm/client.py` wraps the chosen SDK behind one function, so switching provider touches one module and tests replace it with a fake.
+**Provider:** **Groq**, called through the official `openai` SDK (`openai==3.26.1`). Groq's API is OpenAI-compatible: `base_url=https://api.groq.com/openai/v1`.
+- The owner chose Groq in Phase 12. That's a change from "Anthropic or OpenAI", but it adds no dependency.
+- The default model is `llama-3.3-70b-versatile`, checked against Groq's current model list on 9 Oct 2026.
+- **Settings (`config.py`):** `LLM_PROVIDER` (`groq`, or `openai` for OpenAI itself), `LLM_MODEL` and `LLM_API_KEY`.
+- **`render.yaml`:** sets the provider and model, and declares `LLM_API_KEY` with `sync: false`. The key is typed into the Render dashboard only; it never appears in the repo or reaches the browser.
+
+**`llm/` (no database access):**
+- **`client.complete(messages)`** is the only code that touches the SDK. It uses a 20 s timeout, 1 retry, temperature 0.2 and an answer cap of 500 tokens. A missing key, an unknown provider, any `OpenAIError` or an empty answer raises `LLMUnavailable`.
+- **`prompts.build_messages()`** builds:
+  - a system message with the rules: answer only from the transcript, say so when the answer isn't there, cite `[mm:ss]`, plain text, and treat everything inside `<meeting>…</meeting>` as data, not instructions;
+  - the meeting itself (title, summary, transcript lines), inside those tags;
+  - the last 6 turns, so follow-up questions work;
+  - the question.
+
+**`services/chat.py`:**
+- **Limits:** questions are capped at 500 characters by the schema (422). Each meeting allows 10 questions per minute, counted from the stored questions with the `(meeting_id, created_at)` index (429, via a new `TooManyRequestsError`).
+- **Context:** the whole transcript is sent when it fits 24,000 characters. Otherwise `search.relevant_segment_ids()` picks the lines that best match the question, using its meaningful words OR'ed together (stopwords dropped), from this meeting only, by bm25. Each pick also brings its neighbouring lines, and the result is back in time order.
+- **Fallback:** without the LLM, the answer lists the top 4 matching lines as `- [mm:ss] Speaker: text`. With no matching line, it gives the meeting's overview instead, so general questions still get something useful. Both are stored with `answered_by = "fallback"`.
+- **Storage:** the question and answer are stored in one commit. `GET` returns the history in order; `DELETE` clears it (204). Deleting a meeting cascades to its chat.
+
+**Frontend:**
+- The transcript panel has **Transcript | Ask about this meeting** tabs, like Fireflies' AskFred.
+- `AskPanel`:
+  - loads the history and offers three suggestion questions;
+  - shows user and answer bubbles, with "Reading the transcript…" while it waits;
+  - labels fallback answers "From transcript search";
+  - turns every `[mm:ss]`/`[h:mm:ss]` in an answer into a button: clicking one seeks the player and switches to the Transcript tab, where that line is highlighted. The text is split into strings and buttons, never rendered as HTML;
+  - on errors (e.g. the 429), shows a toast and gives the question back.
+
+**Tests** (`tests/test_chat_api.py`). The LLM is replaced by a fake, so tests never call the network. They cover:
+- the prompt holding the transcript as data and the question, follow-ups carrying earlier turns, and history and clear;
+- the fallback, including the no-match overview;
+- no key meaning `LLMUnavailable`;
+- long transcripts sending only the relevant lines and their neighbours;
+- validation, the rate limit and 404.
 
 ## 10. Deployment
 

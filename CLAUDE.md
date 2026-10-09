@@ -39,7 +39,7 @@ Full design, schema, API and data flows: [docs/ARCHITECTURE.md](docs/ARCHITECTUR
 | Frontend | Next.js (App Router) + TypeScript (strict) + Tailwind CSS |
 | Backend | Python 3.12 + FastAPI + SQLAlchemy 2.0 (sync) + Pydantic v2 |
 | Database | SQLite (own schema) + SQLite FTS5 for global search |
-| LLM (bonus 6 only) | Called from the backend only; the owner picks the provider (Anthropic or OpenAI) at Phase 12; key in an env var |
+| LLM (bonus 6 only) | Called from the backend only. **Groq** (the owner's choice in Phase 12) through the official `openai` SDK, because Groq is OpenAI-compatible. The key lives in a Render env var only. |
 | Hosting | Vercel (frontend, root `frontend/`) · Render (backend, root `backend/`) |
 
 **Approved extra dependencies only:** `lucide-react`, `sonner`, `next-themes`, `uvicorn`, `pytest`, `httpx`, `ruff`, ESLint, Prettier, `fpdf2` (PDF export), and one official LLM SDK (`anthropic` or `openai`, the owner's choice).
@@ -214,6 +214,15 @@ frontend/src/
     - Edit and delete icons show on hover or keyboard focus.
     - The header's Add is disabled while the add form is open (the form's button says "Add item").
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
+- **Phase 12 (chat) implementation choices** (details in ARCHITECTURE.md §9.6):
+  - **Provider:** Groq through `openai==3.26.1` (base URL `https://api.groq.com/openai/v1`), default model `llama-3.3-70b-versatile`.
+  - **Key handling:** `render.yaml` sets the provider and model; `LLM_API_KEY` is `sync: false` (dashboard only). Without a key, the chat uses the search fallback.
+  - **`llm/`:** `client.complete()` is the only SDK call (20 s timeout, 1 retry, 500-token cap); failures raise `LLMUnavailable`. `prompts.build_messages()` puts the meeting between `<meeting>` tags as data.
+  - **Limits:** 500-character questions (422); 10 questions a minute per meeting (429, `TooManyRequestsError`); the last 6 turns are sent as history.
+  - **Context:** a transcript over 24,000 characters is cut to the FTS5-relevant lines plus their neighbours.
+  - **Fallback:** the top 4 matching lines, or the overview if none match.
+  - **Frontend:** Transcript | Ask tabs in the transcript panel. `AskPanel` turns `[mm:ss]` citations into seek buttons that switch back to the transcript.
+  - **Tests:** a fake replaces `llm.complete` (no network).
 - **Phase 11 (annotations) implementation choices** (details in ARCHITECTURE.md §9.5):
   - **Detail payload:** `highlight_color`/`comment_count` are model properties on `TranscriptSegment`, fed by two chained `selectinload`s, instead of a GROUP BY query. Soundbites ride along.
   - **Highlights:** PUT upserts; DELETE is idempotent (204).
@@ -363,7 +372,7 @@ npm run build                        # also type-checks
 - [x] **Phase 9: Export TXT / Markdown / PDF (~1 h)**
 - [x] **Phase 10: Global search, FTS5 (~1.25 h)**
 - [x] **Phase 11: Comments, highlights, soundbites (~2.5 h)**
-- [ ] **Phase 12: "Ask about this meeting" chat (~2 h).** Before starting, ask the owner which LLM provider to use and to add the key on Render.
+- [x] **Phase 12: "Ask about this meeting" chat (~2 h).** Before starting, ask the owner which LLM provider to use and to add the key on Render.
 
 **Hard cut-off: Friday 15:00 IST.** A bonus still in progress then is finished within 15 minutes or reverted; then move to Phase 13. Never leave a half-built bonus in the deployed app.
 
