@@ -214,6 +214,13 @@ frontend/src/
     - Edit and delete icons show on hover or keyboard focus.
     - The header's Add is disabled while the add form is open (the form's button says "Add item").
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
+- **Phase 10 (global search) implementation choices** (details in ARCHITECTURE.md §9.4):
+  - **Backend:** `GET /search?q=` with FTS5.
+    - Each word is double-quoted ("all these words"); input with no words returns `[]`.
+    - Results are ranked with bm25, limited to 50 and scoped to the owner.
+    - Snippets mark matches with `\x02`/`\x03`; each result includes `speaker_color`.
+  - **Top bar:** typing stays live on `/meetings` (titles) and `/search` (transcripts); Enter elsewhere, and on the library, opens `/search`, which lists title matches first.
+  - **`?t=<ms>`:** read by the meeting route on the server and passed as `startAt`, so `usePlayer(duration, startMs)` starts there. The workspace is keyed by `id:startAt`.
 - **Phase 9 (export) implementation choices** (details in ARCHITECTURE.md §9.3):
   - **Backend:** one outline with three renderers (`services/export.py`).
     - Transcript TXT lines use the `.txt` upload format, so they re-import.
@@ -310,7 +317,10 @@ npm run build                        # also type-checks
 - **Visual checks:** take headless screenshots and compare them with `docs/reference/`: `"/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" --headless=new --disable-gpu --hide-scrollbars --user-data-dir=<scratch>/edge-profile --window-size=1440,900 --virtual-time-budget=8000 --screenshot=<file>.png http://localhost:3001/<page>`.
 
 - **New tables or seed data:** `create_all()` creates missing tables on startup but never alters existing ones, and seed data only loads into an empty DB. Locally, delete `backend/app.db`; on Render every deploy starts from a fresh disk. Tell the owner whenever a phase needs this.
-- **FTS5:** verify early (Phase 1) that Render's Python has it (it does locally, on SQLite 3.42). When the FTS table is added to an existing DB, run `INSERT INTO segments_fts(segments_fts) VALUES('rebuild')` at startup so rows that already exist get indexed.
+- **FTS5:**
+  - `init_db()` creates `segments_fts` and its triggers and runs `'rebuild'` on every start (Phase 10). Local SQLite 3.42 and Render's 3.40.1 both have FTS5.
+  - `Base.metadata.drop_all()` does **not** drop the virtual table, so the tests rely on that rebuild.
+  - Write FTS SQL with `text()`. Never pass raw user input to `MATCH`; use `services/search.fts_query()`.
 - `with TestClient(app)` runs the startup lifespan (create tables, seed). Point tests at a temporary database before the app touches the real one.
 - **Tailwind v4 dark mode:**
   - Tailwind v4 is configured in CSS. Class-based dark mode with `next-themes` needs `@custom-variant dark (&:where(.dark, .dark *));` in `globals.css`.
@@ -341,7 +351,7 @@ npm run build                        # also type-checks
 - [x] **Phase 7: Dark mode (~45 min).** Built on 9 Oct (~01:50 IST) *before* Phases 5–6, at the owner's request, because of session limits. Phases 5 and 6 come next; the Core Gate still applies before the other bonuses.
 - [x] **Phase 8: Tags + filtering (~1.25 h)**
 - [x] **Phase 9: Export TXT / Markdown / PDF (~1 h)**
-- [ ] **Phase 10: Global search, FTS5 (~1.25 h)**
+- [x] **Phase 10: Global search, FTS5 (~1.25 h)**
 - [ ] **Phase 11: Comments, highlights, soundbites (~2.5 h)**
 - [ ] **Phase 12: "Ask about this meeting" chat (~2 h).** Before starting, ask the owner which LLM provider to use and to add the key on Render.
 

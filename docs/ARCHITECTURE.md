@@ -102,7 +102,7 @@ flowchart LR
 | `app/page.tsx` | Redirects `/` to `/meetings`. |
 | `app/meetings/page.tsx` | Library: filters and the meeting list. |
 | `app/meetings/[id]/page.tsx` | Meeting page: notes, transcript and player. |
-| `app/search/page.tsx` | Global search results (bonus 4). |
+| `app/search/page.tsx` | Global search results (bonus 4): `components/search/SearchResults` inside `<Suspense>`. |
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
 | `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1), `AppToaster` (where toasts appear; follows the theme). The top bar's New meeting button opens `CreateMeetingModal`. |
 | `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips), `TagPicker` (bonus 2: toggle and create tags in the edit modal). |
@@ -227,7 +227,7 @@ pytest, 57 tests: parsers, the summary generator, models (the database really en
 |---|---|---|
 | `/` | none | Redirects to `/meetings`. |
 | `/meetings` | Library | Filters are mirrored in the query string (`?q=&participant=&from=&to=&sort=`; `from`/`to` are local `YYYY-MM-DD` days; `tag` is a tag id, from bonus 2), so a filtered view survives a reload and can be shared. |
-| `/meetings/[id]` | Meeting | From bonus 4, an optional `?t=<ms>` starts the player at that moment (used by global search). |
+| `/meetings/[id]` | Meeting | An optional `?t=<ms>` starts the player at that moment (used by global search, bonus 4). |
 | `/search` | Global search results | `?q=` (bonus 4). |
 | `/record`, `/integrations`, `/team`, `/settings` | Placeholders | Fireflies-styled "Coming soon" pages. |
 
@@ -238,7 +238,7 @@ The root layout renders the shell once: `Sidebar` (navigation) and `Topbar` (sea
 - On any other page, Enter opens `/meetings?q=…`.
 - While focused, the box shows what you're typing; otherwise it shows the URL's `q`. That keeps it in sync with "Clear filters", reloads and shared links, without the race you'd get from copying the URL back into an input while someone types.
 - Because it reads the URL (`useSearchParams`), it renders inside a `<Suspense>` boundary, with a static placeholder in the prerendered HTML.
-- When global search (bonus 4) exists, Enter will open `/search?q=…` instead.
+- Since global search (bonus 4), Enter opens `/search?q=…`: on other pages, and also on the library, where the search page shows title matches too. On `/search`, typing updates the results live.
 
 ### 5.2 Data fetching
 
@@ -767,7 +767,7 @@ sequenceDiagram
    - If the meeting doesn't exist, the 404 makes `MeetingView` show a "Meeting not found" empty state with a link back to the library.
    - An id that isn't a number (`/meetings/abc`) shows the same state without making a request.
    - Any other error shows "Couldn't load this meeting" with Try again.
-4. With the data loaded, `MeetingView` renders `MeetingWorkspace`. It's keyed by the meeting id, so a different meeting gets a fresh player. `MeetingWorkspace` creates the player with `usePlayer(meeting.duration_ms)` and sets the browser tab's title to the meeting's. (From bonus 4, a `?t=412000` in the URL will call `seek(412000)` here.)
+4. With the data loaded, `MeetingView` renders `MeetingWorkspace`. It's keyed by the meeting id, so a different meeting gets a fresh player. `MeetingWorkspace` creates the player with `usePlayer(meeting.duration_ms)` and sets the browser tab's title to the meeting's. With `?t=412000` in the URL, the player starts at 412 000 ms instead of 0 (bonus 4).
 5. It renders `MeetingHeader` (title, date, participants; Edit / Delete arrive in Phase 5), `SummaryPanel` (keywords, overview, `ChaptersList`, and `ActionItemsList` grouped by assignee), `TranscriptPanel` (`TranscriptSearch` and one `TranscriptLine` per segment) and `MediaPlayer`.
 
 ### 8.3 Click-to-seek
@@ -951,12 +951,39 @@ Built only after the Core Gate passes, in this order. These are design summaries
 3. `lib/download.ts` `saveFile()` saves the blob through a temporary object URL and an `<a download>`, and frees it a second later.
 4. A toast confirms ("Downloaded …").
 
-### 9.4 Global search (Phase 10)
+### 9.4 Global search (Phase 10, built)
 
-- Creates `segments_fts` and its triggers (§6.6) and adds `GET /search?q=`.
-- The top-bar search navigates to `/search?q=pricing`. The page calls `api.search(q)`; the service quotes each word, runs the FTS5 query scoped to the user's meetings, ranks by `bm25()` and returns at most 50 hits.
-- Each hit carries the meeting title and date, speaker, `start_ms` and a snippet whose matches are wrapped in `\x02 … \x03`. The page groups hits by meeting and renders the markers as `<mark>` elements.
-- Clicking a hit opens `/meetings/{id}?t={start_ms}`; the meeting page seeks there on load and highlights and scrolls to the line (8.2, 8.3).
+**Index:** `init_db()` runs the §6.6 SQL on every start:
+- the external-content `segments_fts` (`porter unicode61`);
+- three triggers that keep it in sync with `transcript_segments`;
+- a `'rebuild'`, which indexes lines written before the index existed, and is safe to repeat.
+
+It's raw SQL through `text()`, because SQLAlchemy has no model for virtual tables. Tests depend on the rebuild: `drop_all()` drops the ORM tables (and their triggers) but not `segments_fts`, and the next `init_db()` rebuilds it from the empty table.
+
+**API:** `GET /search?q=` (1–200 characters, else 422) → `SearchResult[]`:
+- **Fields:** `segment_id`, `meeting_id`, `meeting_title`, `meeting_date`, `speaker_name`, `speaker_color`, `start_ms`, `snippet`.
+- **Query:**
+  - `services/search.py` turns the input into "all these words": it splits on whitespace, drops tokens with no letters or digits, and double-quotes each word (doubling quotes inside).
+  - Input with no words returns `[]` without querying.
+  - It runs the §6.6 query scoped to the user's meetings, ordered by `bm25()`, `LIMIT 50`.
+  - `TextClause.columns(meeting_date=UTCDateTime())` reads the date back as aware UTC, like the ORM.
+- **Snippets** are about 12 words around the match, with matches wrapped in `\x02 … \x03`.
+
+**Frontend:**
+- **Top-bar search:**
+  - On `/meetings`, typing still filters titles live.
+  - On `/search`, typing updates the results live (debounced 300 ms).
+  - **Enter** on the library or any other page opens `/search?q=…`. The search page also lists meetings whose **title** matches, so Enter in the library loses nothing.
+- **`SearchResults`** (`components/search/`): "Meeting titles" (`MeetingRow`s), then "In transcripts". Hits are grouped by meeting in ranking order; each shows the speaker's avatar and name, the timestamp and the snippet.
+- **Snippets:** split on `\u0002`/`\u0003` and rendered as `<mark>` elements, never as HTML.
+- **States:** a prompt with no query, "No results for …", and an error with Try again. The top bar shows "Search".
+- **A hit** links to `/meetings/{id}?t={start_ms}`. The meeting route reads `t` on the server (`searchParams`) and passes it down, and `usePlayer(duration, startMs)` **starts the clock there**. No seek-after-load effect is needed: the active line is computed from the first render, and the auto-scroll effect brings it into view. The workspace is keyed by meeting id and start, so a new `?t=` gives a fresh player.
+
+**Tests** (`tests/test_search_api.py`):
+- stemming across meetings, bm25 order and exact snippet markers;
+- every word must match, and odd input (`"`, `(`, `budget AND`, `NEAR(price`, `a:b`, `*`, `-price`) is safe;
+- the insert and delete triggers keep the index in sync;
+- the startup rebuild re-indexes after a `'delete-all'`.
 
 ### 9.5 Comments, highlights, soundbites (Phase 11)
 
