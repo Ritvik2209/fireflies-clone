@@ -4,6 +4,7 @@ import type {
   ActionItem,
   ActionItemCreateInput,
   ActionItemUpdateInput,
+  ChatMessage,
   Comment,
   ExportContent,
   ExportFormat,
@@ -195,4 +196,19 @@ export function createSoundbite(
 
 export function deleteSoundbite(soundbiteId: number): Promise<void> {
   return request<void>(`/soundbites/${soundbiteId}`, { method: "DELETE" });
+}
+
+// Bonus 6: the "Ask about this meeting" chat.
+
+export function listChat(meetingId: number, signal?: AbortSignal): Promise<ChatMessage[]> {
+  return request<ChatMessage[]>(`/meetings/${meetingId}/chat`, { signal });
+}
+
+/** Asks a question; resolves to the stored answer (the server stores the question too). */
+export function askQuestion(meetingId: number, question: string): Promise<ChatMessage> {
+  return sendJson<ChatMessage>("POST", `/meetings/${meetingId}/chat`, { question });
+}
+
+export function clearChat(meetingId: number): Promise<void> {
+  return request<void>(`/meetings/${meetingId}/chat`, { method: "DELETE" });
 }

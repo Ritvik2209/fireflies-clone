@@ -127,6 +127,7 @@ export function MeetingWorkspace({ meeting, startAt, onChange }: MeetingWorkspac
           </div>
         </div>
         <TranscriptPanel
+          meetingId={meeting.id}
           segments={meeting.segments}
           people={people}
           activeIndex={activeLine}

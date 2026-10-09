@@ -172,3 +172,12 @@ export interface SoundbiteCreateInput {
   start_ms: number;
   end_ms: number;
 }
+
+/** Bonus 6: the "Ask about this meeting" chat (backend/app/schemas/chat.py). */
+export interface ChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  answered_by: "llm" | "fallback" | null; // on answers: the model, or search results
+  created_at: string;
+}
