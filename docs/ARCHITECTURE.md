@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status: updated during the extras (9 Oct).** Every core feature, all six bonuses (§9), CI (§10.1), speaker analytics (§9.7) and background processing for uploads (§8.6, §9.8) are built and deployed. The core:
+> **Status: updated during the extras (9 Oct).** Every core feature, all six bonuses (§9), CI (§10.1), speaker analytics (§9.7) and background processing for uploads (§8.6, §9.8), the responsive layout (§5.4) and the intro tour (§5.5) are built and deployed. The core:
 > - the backend core (database, parsers, summary generator, services, API, seed data, tests);
 > - the meetings library;
 > - the meeting page (player, transcript sync and search, notes);
@@ -108,6 +108,7 @@ flowchart LR
 | `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips), `TagPicker` (bonus 2: toggle and create tags in the edit modal). Extra 3: `MeetingRow` shows a Processing badge or a Failed row (reason and Delete); `ProcessingWatcher` (mounted in the top bar) follows a just-created meeting and toasts when it's ready. |
 | `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportDialog` (3: the download dialog, opened from the player bar), `HighlightsList`, `CommentThread` (inline under a line), `SoundbitesList`, `SoundbiteDialog` (5), `AskPanel` (6). Extras: `SpeakerTalkTime` (2: the talk-time bars), `UnprocessedMeeting` (3: the Processing or Failed view instead of an empty transcript). |
 | `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal` (on the native `<dialog>`), `Field` (label and hint), `Input` (and styled native `Select` and `Textarea`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
+| `components/tour/` | The optional intro tour (§5.5): `steps.ts` (the steps, as data), `TourProvider` (state, page changes, first-visit card), `TourOverlay` (the spotlight and card) and `TourWelcome`. |
 | `hooks/` | `usePlayer` (virtual clock; `playRange` for soundbites), `useDebounce`, `useAnnotationActions` (bonus 5: stable save-and-update handlers), `useMeetingStatus` (Extra 3: polls a processing meeting until it's ready or failed). |
 | `lib/transcript.ts` | Pure functions: `findActiveIndex` (binary search for the line or chapter playing at a given time), `findMatches` and `groupMatchesByLine` (transcript search). They aren't hooks, because they hold no state. |
 | `lib/api.ts` | The only module that calls `fetch`: one typed function per endpoint; throws an `ApiError` carrying the server's `detail` message. |
@@ -317,6 +318,53 @@ flowchart LR
   - the soundbite dialog's two time fields stack.
 - **Class names:** `cn()` is a plain join with no tailwind-merge. Two conflicting classes would be decided by CSS order, so visibility always uses an explicit pair, such as `hidden` plus `lg:flex`.
 - **Checked** with headless Edge at 390×844 (phone), 820×1180 (tablet) and 1440×900 (desktop): `scrollWidth - innerWidth` is 0 on every page, and the desktop player tests are unchanged.
+
+### 5.5 Intro tour (the owner's request, built after the extras)
+
+```mermaid
+flowchart LR
+    first["first visit:<br/>welcome card"] --> start["start()"]
+    button["compass button<br/>in the top bar"] --> start
+    start --> step["step i:<br/>go to its page (and pane)"]
+    step --> find["find [data-tour=...]<br/>every 150 ms"]
+    find --> spot["dim everything else (4 panels),<br/>ring + card beside it"]
+    spot -->|Next / Back| step
+    spot -->|"step 5: user clicks the<br/>Discovery call row"| meeting["the link opens the meeting,<br/>the tour moves on"]
+    meeting --> step
+    spot -->|Finish, Skip or Escape| done["closed; 'seen' remembered"]
+```
+
+**Files** (`frontend/src/components/tour/`):
+- **`steps.ts`:** the 15 steps, as data. Each has a title, a short body, a `data-tour` selector, its page (`library` or `meeting`), an optional pane (`notes` or `transcript`, for narrow screens), and `clickToContinue` for the one step the user completes themselves.
+- **`TourProvider.tsx`:**
+  - mounted in the root layout, so a tour survives page changes;
+  - holds the step index, and `start`, `next`, `back` and `stop`;
+  - sends the user to the step's page when they aren't on it (Back from the meeting, or starting elsewhere);
+  - shows the welcome card while the tour hasn't been seen in this browser. "Seen" is in `localStorage`, read with `useSyncExternalStore`: the server render assumes "seen", so there's no hydration mismatch.
+- **`TourOverlay.tsx`:** one step on screen.
+  - **Finding the feature:** it finds the first visible element matching the step's selector (and `targetText`, for the meeting row), scrolls it into view once, and re-measures it every 150 ms, because pages load and move.
+  - **The spotlight:** four fixed `bg-black/60` panels surround the feature. They separate it from the rest of the page and catch clicks elsewhere. A brand-coloured ring sits over the feature and blocks it as well, except on the click step, where clicks pass through to the row.
+  - **The card:** "Step n of 15", the title, the text, and Back, Next (or Finish) and Skip. It goes below the feature if there's room, else above, else beside it, else at the bottom of the screen.
+  - **Robustness:**
+    - a feature that never appears (e.g. a meeting without soundbites) is skipped after 6 s;
+    - Escape closes the tour;
+    - Next gets the keyboard focus;
+    - on narrow screens, the tour clicks the meeting page's Notes or Transcript tab (`data-pane`) before looking.
+- **`TourWelcome.tsx`:** a small, non-blocking card ("Take a two-minute tour?"), with Start or No thanks.
+
+**The steps:**
+1. **Welcome.**
+2. **Library:** the meetings, the filters, and the search (title, or transcripts with Enter).
+3. **Open a meeting:** the user clicks "Discovery call: Coastline Facilities", the seeded meeting with tags, highlights, comments and soundbites.
+4. **The meeting:** AI notes, chapters, action items, speaker talk time, highlights/comments/soundbites, the synced transcript, Ask about this meeting, and the player with export.
+5. **The top bar:** New meeting (background processing), and dark mode with the tour button.
+
+**Checked** with headless Edge at 1440×900 and 390×844, locally and live:
+- every step's spotlight and card on screen;
+- a real mouse click through the spotlight opening the meeting;
+- Back from the meeting returning to the library step;
+- Finish closing the tour, with the welcome card not shown again;
+- no console errors.
 
 ## 6. Database
 

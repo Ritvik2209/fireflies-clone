@@ -40,6 +40,8 @@ Design notes, the database schema with an ER diagram, the full API reference and
 - **Action items:** add, edit text and assignee, mark complete, delete.
 - Every change is saved in SQLite and confirmed with a toast; failures show the server's error message.
 
+**Intro tour:** an optional two-minute walkthrough. It's offered on a first visit, and the compass button in the top bar restarts it. Each step dims the page except one feature and says what it does; at one step you open a seeded meeting yourself.
+
 **Works on phones and tablets:** below 1024 px the sidebar becomes a menu, and the meeting page switches between Notes and Transcript with tabs. No page scrolls sideways, even at phone width.
 
 **Fireflies-style shell:** sidebar navigation, a top bar with search, New meeting, settings and profile, and "Coming soon" pages for Record, Integrations, Team and Settings.

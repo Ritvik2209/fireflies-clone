@@ -5,7 +5,7 @@ Full design, schema, API and data flows: [docs/ARCHITECTURE.md](docs/ARCHITECTUR
 
 ## Ground rules
 
-- **Deadline:** Friday 9 October 2026, 18:00 IST (target ~16:00). **Hard cut-off for bonus work: Friday 15:00 IST.** **Phase 13 starts no later than 16:15 IST**; the extras (scope addition, below) run until then.
+- **Deadline:** Friday 9 October 2026, 18:00 IST (target ~16:00). **Hard cut-off for bonus work: Friday 15:00 IST.** **Phase 13 starts no later than 16:15 IST** (the owner moved it to about 16:30 for the intro tour); the extras (scope addition, below) run until then.
 - **The owner must explain every line in an interview.** Clarity beats cleverness: explicit, simple, documented code. Short comments only where the *why* isn't obvious.
 - **Scope is locked** (below). Don't add features, libraries, dependencies or pages without asking first.
 - **If the brief is ambiguous or conflicts, ask instead of guessing.**
@@ -134,6 +134,11 @@ Three optional features, built in this order. Everything else in this brief stay
 ### Responsive layout (the owner's request on 9 Oct, after Extra 3)
 The app works on phones and tablets as well as desktops, with no sideways scrolling.
 
+### Intro tour (the owner's request on 9 Oct, after the responsive layout)
+An optional walkthrough of the core, the bonuses and the extras. The owner chose: a welcome card on a first visit plus a top-bar button, the full tour (Phase 13 moves to about 16:30), and the Discovery call as the meeting the user opens.
+- **Spotlight:** each step dims the page except one feature and says in a sentence or two what it does.
+- **Click step:** one step asks the user to click a seeded meeting, and the tour continues on its page.
+
 ### Out of scope (placeholders only)
 Real auth (default user), integrations (Zoom/Meet/calendar/CRM), live meeting bot, real speech-to-text, team sharing. The player is simulated.
 
@@ -185,7 +190,7 @@ backend/requirements.txt / requirements-dev.txt   runtime deps (installed on Ren
 backend/pyproject.toml                            ruff + pytest config
 frontend/src/
   app/             routes: /meetings, /meetings/[id], /search, /settings, /integrations, /team, /record
-  components/      layout/, meetings/, meeting-detail/, ui/ (see ARCHITECTURE.md §3)
+  components/      layout/, meetings/, meeting-detail/, tour/, ui/ (see ARCHITECTURE.md §3)
   hooks/           usePlayer, useDebounce (+ useMeetingStatus, Extra 3)
   lib/             api.ts (typed fetch client), types.ts, format.ts, url.ts, transcript.ts (pure helpers)
 ```
@@ -284,6 +289,22 @@ frontend/src/
     - Edit and delete icons show on hover or keyboard focus.
     - The header's Add is disabled while the add form is open (the form's button says "Add item").
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
+- **Intro tour** (details in ARCHITECTURE.md §5.5):
+  - **Files:** `components/tour/`:
+    - `steps.ts`: 15 steps, as data;
+    - `TourProvider`: state, page changes and the first-visit card, mounted in the root layout;
+    - `TourOverlay`: the spotlight and the card;
+    - `TourWelcome`.
+  - **Starting it:** the top bar's compass button (`useTour().start`), or the non-blocking welcome card on a first visit. "Seen" is kept in `localStorage` and read with `useSyncExternalStore`, so the server render and the browser agree.
+  - **Finding features:** each toured feature has a `data-tour` attribute. The overlay finds the first visible match (and `targetText`, for the Discovery call row), scrolls it into view once, and re-measures it every 150 ms. A feature still missing after 6 s is skipped.
+  - **Spotlight:** four `bg-black/60` panels around the feature dim the page and block clicks elsewhere. A ring sits over the feature and blocks it too, except on the click step.
+  - **Card placement:** below the feature, else above, else beside it, else at the bottom. It assumes 280 px of card height.
+  - **Moving around:**
+    - each step names its page, and going Back across pages calls `router.push`;
+    - the click step listens for clicks in the capture phase and remembers the meeting's link;
+    - on narrow screens a step can name the Notes or Transcript pane, and the tour clicks that tab (`data-pane`);
+    - Escape ends the tour, and the Next button gets the focus.
+  - **No library:** about 300 lines of our own code.
 - **Responsive layout** (details in ARCHITECTURE.md §5.4):
   - **Below `lg` (1024 px):**
     - the sidebar becomes a drawer (`MobileNav`), opened from the top bar's menu button; Escape, the backdrop or a link closes it;
@@ -514,5 +535,6 @@ gh run watch <run-id> --exit-status   # non-zero exit if the run fails
 - [x] **Extra 2: Speaker analytics (~1 h)**
 - [x] **Extra 3: Background processing for uploads (~1.5 h)**
 - [x] **Responsive layout (the owner's request, ~45 min)**
+- [x] **Intro tour (the owner's request, ~1 h; Phase 13 moves to about 16:30)**
 
 - [ ] **Phase 13: Final polish and ship (~1.5 h, starts no later than 16:15 IST, whatever state the extras are in).** Final deploy; complete README (setup, stack, architecture overview, schema + ER diagram, API overview, assumptions, which bonuses are done); test everything live; regenerate `INTERVIEW_PREP.md` and update `docs/ARCHITECTURE.md` from the final code (every bonus built); final commit and push; give the owner the GitHub URL and the live URL.
