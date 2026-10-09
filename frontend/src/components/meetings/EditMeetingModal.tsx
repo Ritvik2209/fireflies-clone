@@ -4,12 +4,13 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { ParticipantsInput } from "@/components/meetings/ParticipantsInput";
+import { TagPicker } from "@/components/meetings/TagPicker";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import { errorMessage, listParticipants, updateMeeting } from "@/lib/api";
-import type { MeetingDetail, MeetingUpdateInput } from "@/lib/types";
+import { createTag, errorMessage, listParticipants, listTags, updateMeeting } from "@/lib/api";
+import type { MeetingDetail, MeetingUpdateInput, Tag } from "@/lib/types";
 
 interface EditMeetingModalProps {
   meeting: MeetingDetail;
@@ -17,12 +18,14 @@ interface EditMeetingModalProps {
   onSaved: (meeting: MeetingDetail) => void;
 }
 
-/** Edit a meeting's title and participants. Only the fields that changed are sent (PATCH). */
+/** Edit a meeting's title, participants and tags. Only the fields that changed are sent. */
 export function EditMeetingModal({ meeting, onClose, onSaved }: EditMeetingModalProps) {
   const [title, setTitle] = useState(meeting.title);
   const [names, setNames] = useState(() => meeting.participants.map((person) => person.name));
   const [saving, setSaving] = useState(false);
   const [knownPeople, setKnownPeople] = useState<string[]>([]);
+  const [tagIds, setTagIds] = useState(() => meeting.tags.map((tag) => tag.id));
+  const [allTags, setAllTags] = useState<Tag[]>(meeting.tags); // every tag, once loaded
 
   // People who speak in the transcript must stay participants (the API answers 409 otherwise),
   // so their chips have no remove button.
@@ -40,8 +43,24 @@ export function EditMeetingModal({ meeting, onClose, onSaved }: EditMeetingModal
     listParticipants(controller.signal)
       .then((people) => setKnownPeople(people.map((person) => person.name)))
       .catch(() => {}); // suggestions are optional
+    listTags(controller.signal)
+      .then(setAllTags)
+      .catch(() => {}); // the meeting's own tags are still shown
     return () => controller.abort();
   }, []);
+
+  /** Creates a tag for the picker; the meeting itself changes only when the form is saved. */
+  async function addTag(name: string): Promise<Tag | null> {
+    try {
+      const tag = await createTag(name);
+      setAllTags((current) => [...current, tag].sort((a, b) => a.name.localeCompare(b.name)));
+      toast.success(`Created tag “${tag.name}”`);
+      return tag;
+    } catch (error) {
+      toast.error(errorMessage(error));
+      return null;
+    }
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -49,6 +68,9 @@ export function EditMeetingModal({ meeting, onClose, onSaved }: EditMeetingModal
     if (title.trim() !== meeting.title) changes.title = title.trim();
     const before = meeting.participants.map((person) => person.name);
     if (names.join("\n") !== before.join("\n")) changes.participant_names = names;
+    const byId = (a: number, b: number) => a - b;
+    const tagsBefore = meeting.tags.map((tag) => tag.id).sort(byId);
+    if ([...tagIds].sort(byId).join() !== tagsBefore.join()) changes.tag_ids = tagIds;
     if (Object.keys(changes).length === 0) {
       onClose(); // nothing changed
       return;
@@ -89,6 +111,19 @@ export function EditMeetingModal({ meeting, onClose, onSaved }: EditMeetingModal
             onChange={setNames}
             locked={speakers}
             suggestions={knownPeople}
+          />
+        </Field>
+        <Field
+          label="Tags"
+          htmlFor="edit-meeting-new-tag"
+          hint="Click a tag to add it to this meeting or take it off."
+        >
+          <TagPicker
+            inputId="edit-meeting-new-tag"
+            tags={allTags}
+            selected={tagIds}
+            onChange={setTagIds}
+            onCreate={addTag}
           />
         </Field>
         <div className="flex justify-end gap-3 pt-2">
