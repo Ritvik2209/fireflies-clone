@@ -26,7 +26,7 @@ def load_settings() -> Settings:
             os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001")
         ),
         llm_provider=os.environ.get("LLM_PROVIDER", "groq"),
-        llm_model=os.environ.get("LLM_MODEL", "llama-3.3-70b-versatile"),
+        llm_model=os.environ.get("LLM_MODEL", "openai/gpt-oss-120b"),
         # Only ever set on the server. Stripped: a space or newline pasted with it breaks auth.
         llm_api_key=os.environ.get("LLM_API_KEY", "").strip() or None,
     )

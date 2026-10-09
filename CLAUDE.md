@@ -215,11 +215,11 @@ frontend/src/
     - The header's Add is disabled while the add form is open (the form's button says "Add item").
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
 - **Phase 12 (chat) implementation choices** (details in ARCHITECTURE.md §9.6):
-  - **Provider:** Groq through `openai==3.26.1` (base URL `https://api.groq.com/openai/v1`), default model `llama-3.3-70b-versatile`.
+  - **Provider:** Groq through `openai==3.26.1` (base URL `https://api.groq.com/openai/v1`), default model `openai/gpt-oss-120b`, a reasoning model asked for `reasoning_effort="low"` (left out for other models). The first choice, `llama-3.3-70b-versatile`, has been Enterprise-only since 16 Aug 2026.
   - **Key handling:** `render.yaml` sets the provider and model; `LLM_API_KEY` is `sync: false` (dashboard only). Without a key, the chat uses the search fallback. The key is whitespace-stripped, and `/api/health` reports `llm_configured` (never the key).
-  - **`llm/`:** `client.complete()` is the only SDK call (20 s timeout, 1 retry, 500-token cap); failures raise `LLMUnavailable`, and the chat logs the reason as a warning. `prompts.build_messages()` puts the meeting between `<meeting>` tags as data.
+  - **`llm/`:** `client.complete()` is the only SDK call (20 s timeout, 1 retry, temperature 0.5, a 1,000-token cap that includes the thinking); failures raise `LLMUnavailable`, and the chat logs the reason as a warning. `prompts.build_messages()` puts the meeting between `<meeting>` tags as data.
   - **Limits:** 500-character questions (422); 10 questions a minute per meeting (429, `TooManyRequestsError`); the last 6 turns are sent as history.
-  - **Context:** a transcript over 24,000 characters is cut to the FTS5-relevant lines plus their neighbours.
+  - **Context:** a transcript over 16,000 characters (about 4,000 tokens; Groq's free plan allows 8,000 a minute) is cut to the FTS5-relevant lines plus their neighbours.
   - **Fallback:** the top 4 matching lines, or the overview if none match.
   - **Frontend:** Transcript | Ask tabs in the transcript panel. `AskPanel` turns `[mm:ss]` citations into seek buttons that switch back to the transcript.
   - **Tests:** a fake replaces `llm.complete` (no network).
@@ -353,7 +353,9 @@ npm run build                        # also type-checks
 - **New routes and `tsc`:** `PageProps<"/route">` types come from Next's generated route types. After adding a route, run `npx next typegen` (or `dev`/`build`) before `tsc --noEmit`.
 - **fpdf2's built-in fonts only cover Latin-1.** That's why PDFs use the bundled DejaVu Sans in `backend/app/fonts/` (the owner approved it in Phase 9). Emoji still won't render, since DejaVu has no emoji glyphs.
 - **Cross-origin response headers:** JavaScript can only read headers the API exposes. `Content-Disposition` is in `expose_headers` in `main.py`; add any new header the frontend must read there too.
-- **LLM model names and SDK usage:** check current documentation at Phase 12; don't rely on memory.
+- **LLM model names and SDK usage:** check current documentation; don't rely on memory.
+  - Providers retire models. Groq made `llama-3.3-70b-versatile` Enterprise-only on 16 Aug 2026, though it stays in the model list. The live chat then answered from search, with no clue why, until the fallback logged its reason.
+  - Check Groq's deprecations page and the free plan's rate-limits table, not only the model list. `/api/health` shows `llm_configured`; Render's logs show why a question fell back.
 
 ## Phases
 

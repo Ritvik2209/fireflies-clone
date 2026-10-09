@@ -1,11 +1,13 @@
 """The "Ask about this meeting" chat (bonus 6). The LLM is always replaced: no network in tests."""
 
 from dataclasses import replace
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
+from openai import omit
 
 from app.config import load_settings
 from app.llm import client as llm
@@ -108,6 +110,28 @@ def test_the_key_is_read_without_stray_whitespace(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setenv("LLM_API_KEY", " \n")
     assert load_settings().llm_api_key is None
+
+
+def test_reasoning_models_are_asked_to_think_briefly(monkeypatch: pytest.MonkeyPatch) -> None:
+    requests: list[dict[str, Any]] = []
+
+    class FakeOpenAI:  # stands in for the SDK client: records the request, returns an answer
+        def __init__(self, **options: Any) -> None:
+            self.chat = SimpleNamespace(completions=SimpleNamespace(create=self.create))
+
+        def create(self, **request: Any) -> Any:
+            requests.append(request)
+            reply = SimpleNamespace(message=SimpleNamespace(content=" It ships Friday [00:40]. "))
+            return SimpleNamespace(choices=[reply])
+
+    monkeypatch.setattr(llm, "OpenAI", FakeOpenAI)
+    for model in ("openai/gpt-oss-120b", "llama-3.1-8b-instant"):
+        configured = replace(llm.settings, llm_api_key="gsk_test", llm_model=model)
+        monkeypatch.setattr(llm, "settings", configured)
+        assert llm.complete([{"role": "user", "content": "When?"}]) == "It ships Friday [00:40]."
+
+    assert requests[0]["reasoning_effort"] == "low"  # gpt-oss thinks briefly
+    assert requests[1]["reasoning_effort"] is omit  # other models never see the parameter
 
 
 def test_a_long_transcript_sends_only_the_relevant_lines(

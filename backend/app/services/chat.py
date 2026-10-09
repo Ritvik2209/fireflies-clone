@@ -16,7 +16,7 @@ from app.services.meetings import get_meeting, get_owned_meeting
 from app.services.search import relevant_segment_ids
 
 QUESTIONS_PER_MINUTE = 10  # per meeting, counted from the stored questions
-CONTEXT_BUDGET_CHARS = 24_000  # about 6,000 tokens of transcript
+CONTEXT_BUDGET_CHARS = 16_000  # about 4,000 tokens; Groq's free plan allows 8,000 a minute
 RELEVANT_LINES = 12  # if the transcript is longer: its best matches…
 NEIGHBOURS = 1  # …plus the line before and after each, for context
 HISTORY_MESSAGES = 6  # recent turns sent along, so follow-up questions work

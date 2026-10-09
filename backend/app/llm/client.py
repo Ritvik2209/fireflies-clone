@@ -4,7 +4,7 @@ Groq is used through the OpenAI SDK: Groq's API is OpenAI-compatible, so the sam
 OpenAI itself by changing LLM_PROVIDER. The key comes from the server's environment only.
 """
 
-from openai import OpenAI, OpenAIError
+from openai import OpenAI, OpenAIError, omit
 
 from app.config import settings
 
@@ -14,7 +14,9 @@ BASE_URLS: dict[str, str | None] = {
     "openai": None,
 }
 TIMEOUT_SECONDS = 20.0
-MAX_ANSWER_TOKENS = 500  # caps the cost and length of every answer
+TEMPERATURE = 0.5  # Groq's advice for reasoning models is 0.5-0.7: lower can repeat itself
+# Caps the cost and length of every answer. A reasoning model's thinking counts towards it.
+MAX_ANSWER_TOKENS = 1_000
 
 
 class LLMUnavailable(Exception):
@@ -37,12 +39,19 @@ def complete(messages: list[dict[str, str]]) -> str:
         response = client.chat.completions.create(
             model=settings.llm_model,
             messages=messages,  # type: ignore[arg-type]  (plain dicts, the SDK's documented shape)
-            temperature=0.2,  # low: stick to the transcript
+            temperature=TEMPERATURE,
             max_completion_tokens=MAX_ANSWER_TOKENS,
+            # Reasoning models think before answering; "low" keeps that short. Others reject it.
+            reasoning_effort="low" if _is_reasoning_model(settings.llm_model) else omit,
         )
-    except OpenAIError as error:  # network, auth, rate limit or timeout
+    except OpenAIError as error:  # network, auth, rate limit, retired model or timeout
         raise LLMUnavailable(str(error)) from error
     answer = response.choices[0].message.content if response.choices else None
     if not answer or not answer.strip():
         raise LLMUnavailable("the model returned an empty answer")
     return answer.strip()
+
+
+def _is_reasoning_model(model: str) -> bool:
+    """Groq's gpt-oss models (the default) reason before they answer."""
+    return "gpt-oss" in model
