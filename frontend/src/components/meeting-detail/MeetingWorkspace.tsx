@@ -13,6 +13,7 @@ import type { ActionItem, MeetingDetail, Participant } from "@/lib/types";
 
 interface MeetingWorkspaceProps {
   meeting: MeetingDetail;
+  startAt?: number; // ms from a ?t= link: the player starts there
   /** Applies a change to the loaded meeting (after an edit or an action-item change). */
   onChange: (update: (meeting: MeetingDetail) => MeetingDetail) => void;
 }
@@ -22,8 +23,8 @@ interface MeetingWorkspaceProps {
  * The player's clock is the single source of truth. Everything that seeks calls `seek`, and the
  * active transcript line and chapter are worked out from `currentMs` on every render.
  */
-export function MeetingWorkspace({ meeting, onChange }: MeetingWorkspaceProps) {
-  const player = usePlayer(meeting.duration_ms);
+export function MeetingWorkspace({ meeting, startAt, onChange }: MeetingWorkspaceProps) {
+  const player = usePlayer(meeting.duration_ms, startAt);
   const { seek } = player;
   // Whether the transcript scrolls along with playback; scrolling it by hand turns this off.
   const [following, setFollowing] = useState(true);

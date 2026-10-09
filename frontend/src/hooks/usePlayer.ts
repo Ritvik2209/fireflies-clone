@@ -14,11 +14,13 @@ interface Anchor {
  * background tab). Play, pause, seek and speed changes all just set a new anchor.
  * While paused, `anchor.ms` is the position.
  */
-export function usePlayer(durationMs: number) {
-  const [currentMs, setCurrentMs] = useState(0);
+export function usePlayer(durationMs: number, startMs = 0) {
+  // A ?t= link (from global search) starts the clock at that moment.
+  const start = Math.min(Math.max(startMs, 0), durationMs);
+  const [currentMs, setCurrentMs] = useState(start);
   const [isPlaying, setIsPlaying] = useState(false);
   const [rate, setRateState] = useState(1);
-  const anchor = useRef<Anchor>({ ms: 0, time: 0 });
+  const anchor = useRef<Anchor>({ ms: start, time: 0 });
 
   // While playing, recompute the position on every animation frame (about 60 times a second).
   useEffect(() => {

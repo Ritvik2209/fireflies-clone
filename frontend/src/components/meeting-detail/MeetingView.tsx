@@ -21,7 +21,7 @@ interface Loaded {
 }
 
 /** Loads one meeting and shows it, or a skeleton, "Meeting not found", or an error. */
-export function MeetingView({ id }: { id: string }) {
+export function MeetingView({ id, startAt }: { id: string; startAt?: number }) {
   const meetingId = /^\d+$/.test(id) ? Number(id) : null; // "/meetings/abc" is simply not found
   const [attempt, setAttempt] = useState(0); // "Try again" bumps this to refetch
   const [loaded, setLoaded] = useState<Loaded>();
@@ -66,9 +66,14 @@ export function MeetingView({ id }: { id: string }) {
       </EmptyState>
     );
   }
-  // The key gives each meeting a fresh player (back at 00:00) when the URL changes.
+  // The key gives each meeting (and each ?t= start) a fresh player when the URL changes.
   return (
-    <MeetingWorkspace key={loaded.meeting.id} meeting={loaded.meeting} onChange={changeMeeting} />
+    <MeetingWorkspace
+      key={`${loaded.meeting.id}:${startAt ?? 0}`}
+      meeting={loaded.meeting}
+      startAt={startAt}
+      onChange={changeMeeting}
+    />
   );
 }
 
