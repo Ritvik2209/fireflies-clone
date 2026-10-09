@@ -42,6 +42,8 @@ export interface TranscriptSegment {
   start_ms: number; // milliseconds from the start of the meeting
   end_ms: number;
   text: string;
+  highlight_color: HighlightColor | null; // bonus 5: the current user's highlight
+  comment_count: number; // bonus 5
 }
 
 export type GeneratedBy = "seed" | "rule_based";
@@ -81,6 +83,7 @@ export interface MeetingDetail extends MeetingListItem {
   summary: Summary | null;
   chapters: Chapter[]; // sorted by start_ms
   action_items: ActionItem[];
+  soundbites: Soundbite[]; // bonus 5, sorted by start
 }
 
 export type TranscriptFormat = "txt" | "vtt" | "json";
@@ -141,4 +144,31 @@ export interface MeetingQuery {
   dateFrom?: string;
   dateTo?: string;
   sort?: SortOrder;
+}
+
+/** Bonus 5: annotations (backend/app/schemas/annotations.py). */
+export type HighlightColor = "yellow" | "green" | "blue" | "pink";
+
+export interface Comment {
+  id: number;
+  segment_id: number;
+  author_name: string;
+  text: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Soundbite {
+  id: number;
+  meeting_id: number;
+  title: string;
+  start_ms: number;
+  end_ms: number;
+  created_at: string;
+}
+
+export interface SoundbiteCreateInput {
+  title: string;
+  start_ms: number;
+  end_ms: number;
 }

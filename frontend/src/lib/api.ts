@@ -4,8 +4,10 @@ import type {
   ActionItem,
   ActionItemCreateInput,
   ActionItemUpdateInput,
+  Comment,
   ExportContent,
   ExportFormat,
+  HighlightColor,
   MeetingCreateInput,
   MeetingDetail,
   MeetingListItem,
@@ -13,6 +15,8 @@ import type {
   MeetingUpdateInput,
   Participant,
   SearchResult,
+  Soundbite,
+  SoundbiteCreateInput,
   Tag,
 } from "@/lib/types";
 
@@ -51,8 +55,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
-/** A request with a JSON body (POST, PATCH). */
-function sendJson<T>(method: "POST" | "PATCH", path: string, body: unknown): Promise<T> {
+/** A request with a JSON body (POST, PATCH, PUT). */
+function sendJson<T>(method: "POST" | "PATCH" | "PUT", path: string, body: unknown): Promise<T> {
   return request<T>(path, {
     method,
     headers: { "Content-Type": "application/json" },
@@ -154,4 +158,41 @@ export async function downloadExport(
 /** Full-text search across every transcript (bonus 4), best matches first. */
 export function searchTranscripts(query: string, signal?: AbortSignal): Promise<SearchResult[]> {
   return request<SearchResult[]>(`/search?q=${encodeURIComponent(query)}`, { signal });
+}
+
+// Bonus 5: highlights, comments and soundbites.
+
+export function setHighlight(segmentId: number, color: HighlightColor): Promise<unknown> {
+  return sendJson("PUT", `/segments/${segmentId}/highlight`, { color });
+}
+
+export function clearHighlight(segmentId: number): Promise<void> {
+  return request<void>(`/segments/${segmentId}/highlight`, { method: "DELETE" });
+}
+
+export function listComments(segmentId: number, signal?: AbortSignal): Promise<Comment[]> {
+  return request<Comment[]>(`/segments/${segmentId}/comments`, { signal });
+}
+
+export function addComment(segmentId: number, text: string): Promise<Comment> {
+  return sendJson<Comment>("POST", `/segments/${segmentId}/comments`, { text });
+}
+
+export function updateComment(commentId: number, text: string): Promise<Comment> {
+  return sendJson<Comment>("PATCH", `/comments/${commentId}`, { text });
+}
+
+export function deleteComment(commentId: number): Promise<void> {
+  return request<void>(`/comments/${commentId}`, { method: "DELETE" });
+}
+
+export function createSoundbite(
+  meetingId: number,
+  input: SoundbiteCreateInput,
+): Promise<Soundbite> {
+  return sendJson<Soundbite>("POST", `/meetings/${meetingId}/soundbites`, input);
+}
+
+export function deleteSoundbite(soundbiteId: number): Promise<void> {
+  return request<void>(`/soundbites/${soundbiteId}`, { method: "DELETE" });
 }

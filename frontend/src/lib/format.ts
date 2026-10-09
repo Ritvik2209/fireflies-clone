@@ -85,3 +85,12 @@ export function toDateTimeLocal(date: Date): string {
     `T${pad(date.getHours())}:${pad(date.getMinutes())}`
   );
 }
+
+/** "04:05" or "1:02:03" → milliseconds; null if the text isn't a time. */
+export function parseTimestamp(value: string): number | null {
+  const match = /^(?:(\d+):)?(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const [, hours, minutes, seconds] = match;
+  if (Number(seconds) > 59 || (hours !== undefined && Number(minutes) > 59)) return null;
+  return ((Number(hours ?? 0) * 60 + Number(minutes)) * 60 + Number(seconds)) * 1000;
+}

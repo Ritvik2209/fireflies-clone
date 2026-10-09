@@ -21,6 +21,8 @@ export function usePlayer(durationMs: number, startMs = 0) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [rate, setRateState] = useState(1);
   const anchor = useRef<Anchor>({ ms: start, time: 0 });
+  // Where playback stops by itself: the end of a soundbite (bonus 5), or null for the end.
+  const stopAt = useRef<number | null>(null);
 
   // While playing, recompute the position on every animation frame (about 60 times a second).
   useEffect(() => {
@@ -28,10 +30,12 @@ export function usePlayer(durationMs: number, startMs = 0) {
     let frame = 0;
     const tick = () => {
       const ms = anchor.current.ms + (performance.now() - anchor.current.time) * rate;
-      if (ms >= durationMs) {
-        // The end: stop there.
-        anchor.current = { ms: durationMs, time: performance.now() };
-        setCurrentMs(durationMs);
+      const end = stopAt.current ?? durationMs;
+      if (ms >= end) {
+        // The end of the meeting or of the soundbite: stop exactly there.
+        anchor.current = { ms: end, time: performance.now() };
+        stopAt.current = null;
+        setCurrentMs(end);
         setIsPlaying(false);
         return;
       }
@@ -51,6 +55,7 @@ export function usePlayer(durationMs: number, startMs = 0) {
 
   const play = useCallback(() => {
     if (isPlaying) return;
+    stopAt.current = null; // plain play runs to the end
     const from = anchor.current.ms >= durationMs ? 0 : anchor.current.ms; // at the end, start over
     anchor.current = { ms: from, time: performance.now() };
     setCurrentMs(from);
@@ -58,6 +63,7 @@ export function usePlayer(durationMs: number, startMs = 0) {
   }, [isPlaying, durationMs]);
 
   const pause = useCallback(() => {
+    stopAt.current = null;
     const ms = positionNow();
     anchor.current = { ms, time: performance.now() };
     setCurrentMs(ms);
@@ -70,6 +76,7 @@ export function usePlayer(durationMs: number, startMs = 0) {
   const seek = useCallback(
     (ms: number) => {
       const target = Math.min(Math.max(ms, 0), durationMs);
+      stopAt.current = null; // seeking elsewhere ends a soundbite
       anchor.current = { ms: target, time: performance.now() };
       setCurrentMs(target);
     },
@@ -85,5 +92,17 @@ export function usePlayer(durationMs: number, startMs = 0) {
     [positionNow],
   );
 
-  return { currentMs, isPlaying, rate, play, pause, toggle, seek, setRate };
+  /** Plays only [startMs, endMs] (a soundbite) and pauses by itself at the end. */
+  const playRange = useCallback(
+    (startMs: number, endMs: number) => {
+      const from = Math.min(Math.max(startMs, 0), durationMs);
+      anchor.current = { ms: from, time: performance.now() };
+      stopAt.current = Math.min(endMs, durationMs);
+      setCurrentMs(from);
+      setIsPlaying(true);
+    },
+    [durationMs],
+  );
+
+  return { currentMs, isPlaying, rate, play, pause, toggle, seek, setRate, playRange, positionNow };
 }
