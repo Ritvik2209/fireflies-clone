@@ -188,23 +188,26 @@ function Bubble({ message, onCite }: { message: Shown; onCite?: (ms: number) => 
  */
 function withCitations(text: string, onCite: (ms: number) => void): ReactNode[] {
   // Splitting on a capturing group keeps the matches: they land at the odd positions.
-  return text
-    .split(CITATION)
-    .flatMap((part, index) => (index % 2 === 1 ? citationButtons(part, index, onCite) : [part]));
+  return text.split(CITATION).map((part, index) =>
+    index % 2 === 1 ? (
+      // A citation never breaks across lines, so "[" stays with its timestamp.
+      <span key={index} className="whitespace-nowrap">
+        {citationButtons(part, onCite)}
+      </span>
+    ) : (
+      part
+    ),
+  );
 }
 
 /** "[05:26–06:00]" becomes "[", a button for 05:26, "–", a button for 06:00, and "]". */
-function citationButtons(
-  group: string,
-  groupIndex: number,
-  onCite: (ms: number) => void,
-): ReactNode[] {
+function citationButtons(group: string, onCite: (ms: number) => void): ReactNode[] {
   return group.split(TIMESTAMP).map((part, index) => {
     const ms = index % 2 === 1 ? parseTimestamp(part) : null;
     if (ms === null) return part;
     return (
       <button
-        key={`${groupIndex}-${index}`}
+        key={index}
         type="button"
         onClick={() => onCite(ms)}
         className="font-medium text-link tabular-nums hover:underline"
