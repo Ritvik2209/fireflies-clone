@@ -10,6 +10,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.models.meeting import MeetingStatus
 from app.schemas.action_item import ActionItemOut
 from app.schemas.annotations import SoundbiteOut
 from app.schemas.base import ORMModel
@@ -76,6 +77,8 @@ class MeetingListItem(ORMModel):
     source: MeetingSource
     participants: list[ParticipantOut]
     tags: list[TagOut]
+    status: MeetingStatus  # Extra 3: "processing" until the background job finishes
+    error_message: str | None  # why processing failed; None otherwise
 
 
 class MeetingDetail(MeetingListItem):

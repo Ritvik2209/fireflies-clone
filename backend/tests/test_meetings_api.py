@@ -33,6 +33,7 @@ def test_create_parses_the_transcript_and_generates_notes(client: TestClient) ->
     meeting = _create(client)
 
     assert meeting["meeting_date"] == "2026-10-06T04:30:00Z"  # always sent with a UTC offset
+    assert (meeting["status"], meeting["error_message"]) == ("ready", None)
     assert _names(meeting) == ["Daniel Okafor", "Priya Shah", "Sam Rivera"]
     assert [segment["start_ms"] for segment in meeting["segments"]] == [0, 40_000, 90_000]
     assert meeting["duration_ms"] == meeting["segments"][-1]["end_ms"]

@@ -1,7 +1,7 @@
 """A meeting: the centre of the schema. Everything that exists only inside one meeting cascades."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from sqlalchemy import CheckConstraint, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -21,12 +21,21 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
+# Extra 3: an upload is saved as "processing" and parsed in the background.
+MeetingStatus = Literal["processing", "ready", "failed"]
+
+
 class Meeting(Base):
     __tablename__ = "meetings"
     __table_args__ = (
         CheckConstraint("length(title) BETWEEN 1 AND 200", name="ck_meetings_title_length"),
         CheckConstraint("duration_ms >= 0", name="ck_meetings_duration"),
         CheckConstraint("source IN ('seed', 'upload', 'paste')", name="ck_meetings_source"),
+        CheckConstraint("status IN ('processing', 'ready', 'failed')", name="ck_meetings_status"),
+        # An error message exists exactly when processing failed.
+        CheckConstraint(
+            "(status = 'failed') = (error_message IS NOT NULL)", name="ck_meetings_error_message"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -35,6 +44,8 @@ class Meeting(Base):
     meeting_date: Mapped[datetime] = mapped_column(UTCDateTime, index=True)
     duration_ms: Mapped[int]
     source: Mapped[str] = mapped_column(String(10))
+    status: Mapped[str] = mapped_column(String(10), default="ready", server_default="ready")
+    error_message: Mapped[str | None] = mapped_column(String(500))  # only when failed
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utc_now, onupdate=utc_now)
 

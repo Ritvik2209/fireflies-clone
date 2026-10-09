@@ -77,3 +77,19 @@ def test_datetimes_come_back_timezone_aware(db: Session) -> None:
     db.expire_all()
 
     assert db.get(Meeting, meeting.id).meeting_date == datetime(2026, 10, 6, 4, 30, tzinfo=UTC)
+
+
+def test_an_error_message_exists_exactly_when_processing_failed(db: Session) -> None:
+    meeting, _ = _meeting_with_children(db)
+    assert (meeting.status, meeting.error_message) == ("ready", None)  # the default
+
+    meeting.status = "failed"  # failed, but no message: the database refuses it
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+    meeting.status, meeting.error_message = "failed", "Line 1: expected a timestamp"
+    db.commit()
+    meeting.status = "done"  # not one of processing / ready / failed
+    with pytest.raises(IntegrityError):
+        db.commit()
