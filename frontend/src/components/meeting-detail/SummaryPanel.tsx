@@ -5,6 +5,7 @@ import { ActionItemsList } from "@/components/meeting-detail/ActionItemsList";
 import { ChaptersList } from "@/components/meeting-detail/ChaptersList";
 import { HighlightsList } from "@/components/meeting-detail/HighlightsList";
 import { SoundbitesList } from "@/components/meeting-detail/SoundbitesList";
+import { SpeakerTalkTime } from "@/components/meeting-detail/SpeakerTalkTime";
 import type {
   ActionItem,
   Chapter,
@@ -103,6 +104,7 @@ export const SummaryPanel = memo(function SummaryPanel({
         onSeek={onSeek}
         onItemsChange={onActionItemsChange}
       />
+      <SpeakerTalkTime meetingId={meetingId} />
       <HighlightsList lines={highlights} people={people} onSeek={onSeek} />
       <SoundbitesList
         soundbites={soundbites}

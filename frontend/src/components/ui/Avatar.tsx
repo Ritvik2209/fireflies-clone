@@ -3,7 +3,8 @@ import { initial } from "@/lib/format";
 import type { AvatarColor } from "@/lib/types";
 
 // Complete class names (not built from strings) so Tailwind can find them in the source.
-const COLORS: Record<AvatarColor, string> = {
+// Also used for the talk-time bars, so a speaker's bar matches their avatar.
+export const AVATAR_BG: Record<AvatarColor, string> = {
   indigo: "bg-avatar-indigo",
   green: "bg-avatar-green",
   yellow: "bg-avatar-yellow",
@@ -32,7 +33,7 @@ export function Avatar({ name, color, size = "md" }: AvatarProps) {
       title={name}
       className={cn(
         "inline-flex shrink-0 items-center justify-center rounded-md font-semibold text-white select-none",
-        COLORS[color],
+        AVATAR_BG[color],
         SIZES[size],
       )}
     >

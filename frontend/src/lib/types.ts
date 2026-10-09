@@ -181,3 +181,25 @@ export interface ChatMessage {
   answered_by: "llm" | "fallback" | null; // on answers: the model, or search results
   created_at: string;
 }
+
+/** backend/app/schemas/analytics.py (Extra 2): who talked how much in a meeting. */
+export interface SpeakerAnalytics {
+  participant_id: number;
+  name: string;
+  avatar_color: AvatarColor;
+  talk_time_ms: number;
+  talk_percent: number; // share of the meeting's talk time, to one decimal
+  segment_count: number;
+  word_count: number;
+  words_per_minute: number; // 0 when the speaker's talk time is 0
+  question_count: number;
+  longest_monologue_ms: number;
+}
+
+export interface MeetingAnalytics {
+  meeting_id: number;
+  total_talk_time_ms: number;
+  speaker_count: number;
+  dominant_speaker: string | null; // null when there is no transcript
+  speakers: SpeakerAnalytics[]; // most talk time first
+}

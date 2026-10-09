@@ -9,6 +9,7 @@ import type {
   ExportContent,
   ExportFormat,
   HighlightColor,
+  MeetingAnalytics,
   MeetingCreateInput,
   MeetingDetail,
   MeetingListItem,
@@ -211,4 +212,9 @@ export function askQuestion(meetingId: number, question: string): Promise<ChatMe
 
 export function clearChat(meetingId: number): Promise<void> {
   return request<void>(`/meetings/${meetingId}/chat`, { method: "DELETE" });
+}
+
+/** Speaker analytics (Extra 2), computed by the server from the transcript on every request. */
+export function getAnalytics(meetingId: number, signal?: AbortSignal): Promise<MeetingAnalytics> {
+  return request<MeetingAnalytics>(`/meetings/${meetingId}/analytics`, { signal });
 }
