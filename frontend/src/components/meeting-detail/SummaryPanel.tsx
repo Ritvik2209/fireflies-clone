@@ -3,7 +3,16 @@ import { memo } from "react";
 
 import { ActionItemsList } from "@/components/meeting-detail/ActionItemsList";
 import { ChaptersList } from "@/components/meeting-detail/ChaptersList";
-import type { ActionItem, Chapter, Participant, Summary } from "@/lib/types";
+import { HighlightsList } from "@/components/meeting-detail/HighlightsList";
+import { SoundbitesList } from "@/components/meeting-detail/SoundbitesList";
+import type {
+  ActionItem,
+  Chapter,
+  Participant,
+  Soundbite,
+  Summary,
+  TranscriptSegment,
+} from "@/lib/types";
 
 interface SummaryPanelProps {
   summary: Summary | null;
@@ -15,6 +24,11 @@ interface SummaryPanelProps {
   durationMs: number;
   activeChapter: number;
   onSeek: (ms: number) => void;
+  highlights: TranscriptSegment[]; // bonus 5: the highlighted lines
+  soundbites: Soundbite[];
+  onPlaySoundbite: (soundbite: Soundbite) => void;
+  onNewSoundbite: () => void;
+  onDeleteSoundbite: (soundbite: Soundbite) => void;
 }
 
 /**
@@ -31,6 +45,11 @@ export const SummaryPanel = memo(function SummaryPanel({
   durationMs,
   activeChapter,
   onSeek,
+  highlights,
+  soundbites,
+  onPlaySoundbite,
+  onNewSoundbite,
+  onDeleteSoundbite,
 }: SummaryPanelProps) {
   return (
     <div className="mt-8">
@@ -83,6 +102,13 @@ export const SummaryPanel = memo(function SummaryPanel({
         people={people}
         onSeek={onSeek}
         onItemsChange={onActionItemsChange}
+      />
+      <HighlightsList lines={highlights} people={people} onSeek={onSeek} />
+      <SoundbitesList
+        soundbites={soundbites}
+        onPlay={onPlaySoundbite}
+        onNew={onNewSoundbite}
+        onDelete={onDeleteSoundbite}
       />
     </div>
   );

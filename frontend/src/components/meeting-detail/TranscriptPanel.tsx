@@ -1,12 +1,12 @@
 "use client";
 
 import { LocateFixed } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { TranscriptLine } from "@/components/meeting-detail/TranscriptLine";
 import { TranscriptSearch } from "@/components/meeting-detail/TranscriptSearch";
 import { findMatches, groupMatchesByLine, type TranscriptMatch } from "@/lib/transcript";
-import type { Participant, TranscriptSegment } from "@/lib/types";
+import type { HighlightColor, Participant, TranscriptSegment } from "@/lib/types";
 
 interface TranscriptPanelProps {
   segments: TranscriptSegment[];
@@ -15,6 +15,9 @@ interface TranscriptPanelProps {
   following: boolean; // whether the view follows playback (false after scrolling by hand)
   onFollowingChange: (following: boolean) => void;
   onSeek: (ms: number) => void;
+  onHighlight: (segment: TranscriptSegment, color: HighlightColor | null) => void;
+  onCommentCountChange: (segmentId: number, count: number) => void;
+  onSoundbite: (segment: TranscriptSegment) => void;
 }
 
 /**
@@ -28,6 +31,9 @@ export const TranscriptPanel = memo(function TranscriptPanel({
   following,
   onFollowingChange,
   onSeek,
+  onHighlight,
+  onCommentCountChange,
+  onSoundbite,
 }: TranscriptPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null); // the scrolling list of lines
   const [query, setQuery] = useState("");
@@ -37,6 +43,12 @@ export const TranscriptPanel = memo(function TranscriptPanel({
   const matchesByLine = useMemo(() => groupMatchesByLine(matches), [matches]);
   const currentMatch: TranscriptMatch | undefined = matches[current];
   const searching = query.trim() !== "";
+  const [openThread, setOpenThread] = useState<number | null>(null); // a line's comments
+  // Opening another line's comments closes the first (stable, so the lines stay memoised).
+  const toggleThread = useCallback(
+    (segmentId: number) => setOpenThread((open) => (open === segmentId ? null : segmentId)),
+    [],
+  );
 
   // Keep the line being played in view. This runs when the active line changes, not every frame.
   // It pauses while the user reads elsewhere (scrolled away, or searching), so it never fights them.
@@ -100,7 +112,12 @@ export const TranscriptPanel = memo(function TranscriptPanel({
               isActive={index === activeIndex}
               matches={matchesByLine.get(index)}
               currentMatchStart={currentMatch?.line === index ? currentMatch.start : -1}
+              commentsOpen={openThread === segment.id}
               onSeek={onSeek}
+              onHighlight={onHighlight}
+              onToggleComments={toggleThread}
+              onCommentCountChange={onCommentCountChange}
+              onSoundbite={onSoundbite}
             />
           ))}
         </ol>
