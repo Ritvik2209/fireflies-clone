@@ -115,6 +115,10 @@ export interface ActionItemUpdateInput {
   is_completed?: boolean;
 }
 
+/** GET /api/meetings/{id}/export (bonus 3) */
+export type ExportContent = "transcript" | "summary";
+export type ExportFormat = "pdf" | "txt" | "md";
+
 export type SortOrder = "recent" | "oldest";
 
 /** Filters for GET /api/meetings. Dates are ISO strings with a time zone. */

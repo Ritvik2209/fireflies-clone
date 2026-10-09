@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { ExportDialog } from "@/components/meeting-detail/ExportDialog";
 import { MediaPlayer } from "@/components/meeting-detail/MediaPlayer";
 import { MeetingHeader } from "@/components/meeting-detail/MeetingHeader";
 import { SummaryPanel } from "@/components/meeting-detail/SummaryPanel";
@@ -26,6 +27,7 @@ export function MeetingWorkspace({ meeting, onChange }: MeetingWorkspaceProps) {
   const { seek } = player;
   // Whether the transcript scrolls along with playback; scrolling it by hand turns this off.
   const [following, setFollowing] = useState(true);
+  const [exporting, setExporting] = useState(false); // the download dialog is open
   const people = useMemo(
     () => new Map<number, Participant>(meeting.participants.map((person) => [person.id, person])),
     [meeting.participants],
@@ -91,7 +93,9 @@ export function MeetingWorkspace({ meeting, onChange }: MeetingWorkspaceProps) {
         onToggle={player.toggle}
         onSeek={seekAndFollow}
         onRateChange={player.setRate}
+        onDownload={() => setExporting(true)}
       />
+      {exporting && <ExportDialog meetingId={meeting.id} onClose={() => setExporting(false)} />}
     </div>
   );
 }

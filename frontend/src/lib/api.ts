@@ -4,6 +4,8 @@ import type {
   ActionItem,
   ActionItemCreateInput,
   ActionItemUpdateInput,
+  ExportContent,
+  ExportFormat,
   MeetingCreateInput,
   MeetingDetail,
   MeetingListItem,
@@ -26,7 +28,8 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** Sends a request and returns the response, or throws an ApiError the UI can show. */
+async function send(path: string, init: RequestInit = {}): Promise<Response> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/api${path}`, init);
@@ -37,6 +40,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     throw new ApiError(response.status, await errorDetail(response));
   }
+  return response;
+}
+
+/** A request whose response is JSON (or nothing, for DELETE). */
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await send(path, init);
   if (response.status === 204) return undefined as T; // DELETE: no body
   return (await response.json()) as T;
 }
@@ -126,4 +135,17 @@ export function listTags(signal?: AbortSignal): Promise<Tag[]> {
 /** The API picks the colour from the name. A name that already exists (ignoring case) is 409. */
 export function createTag(name: string): Promise<Tag> {
   return sendJson<Tag>("POST", "/tags", { name });
+}
+
+/** An export file (bonus 3), with the filename the server chose. */
+export async function downloadExport(
+  meetingId: number,
+  content: ExportContent,
+  format: ExportFormat,
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await send(`/meetings/${meetingId}/export?content=${content}&format=${format}`);
+  // The server names the file in Content-Disposition, which its CORS settings let us read.
+  const header = response.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="([^"]+)"/.exec(header)?.[1] ?? `meeting-${content}.${format}`;
+  return { blob: await response.blob(), filename };
 }

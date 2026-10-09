@@ -1,4 +1,4 @@
-import { Pause, Play, RotateCcw, RotateCw } from "lucide-react";
+import { Download, Pause, Play, RotateCcw, RotateCw } from "lucide-react";
 
 import { IconButton } from "@/components/ui/IconButton";
 import { formatTimestamp } from "@/lib/format";
@@ -15,6 +15,7 @@ interface MediaPlayerProps {
   onToggle: () => void;
   onSeek: (ms: number) => void;
   onRateChange: (rate: number) => void;
+  onDownload: () => void; // opens the export dialog
 }
 
 /** The player bar: a seek bar along its top edge, the time on the left, controls in the middle. */
@@ -26,6 +27,7 @@ export function MediaPlayer({
   onToggle,
   onSeek,
   onRateChange,
+  onDownload,
 }: MediaPlayerProps) {
   const nextRate = RATES[(RATES.indexOf(rate) + 1) % RATES.length];
   const position = `${formatTimestamp(currentMs)} of ${formatTimestamp(durationMs)}`;
@@ -84,6 +86,13 @@ export function MediaPlayer({
             iconClassName="size-5"
             className="size-9"
             onClick={() => onSeek(currentMs + SKIP_MS)}
+          />
+          <IconButton
+            icon={Download}
+            label="Download transcript or notes"
+            iconClassName="size-5"
+            className="size-9"
+            onClick={onDownload}
           />
         </div>
       </div>
