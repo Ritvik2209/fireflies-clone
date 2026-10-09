@@ -49,7 +49,8 @@ def complete(messages: list[dict[str, str]]) -> str:
     answer = response.choices[0].message.content if response.choices else None
     if not answer or not answer.strip():
         raise LLMUnavailable("the model returned an empty answer")
-    return answer.strip()
+    # The chat shows plain text, but gpt-oss adds Markdown bold despite the rules: drop it.
+    return answer.replace("**", "").strip()
 
 
 def _is_reasoning_model(model: str) -> bool:

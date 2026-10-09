@@ -121,7 +121,8 @@ def test_reasoning_models_are_asked_to_think_briefly(monkeypatch: pytest.MonkeyP
 
         def create(self, **request: Any) -> Any:
             requests.append(request)
-            reply = SimpleNamespace(message=SimpleNamespace(content=" It ships Friday [00:40]. "))
+            content = " It ships **Friday** [00:40]. "  # Markdown bold, as gpt-oss writes it
+            reply = SimpleNamespace(message=SimpleNamespace(content=content))
             return SimpleNamespace(choices=[reply])
 
     monkeypatch.setattr(llm, "OpenAI", FakeOpenAI)

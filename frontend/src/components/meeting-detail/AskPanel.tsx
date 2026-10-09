@@ -15,6 +15,12 @@ import type { ChatMessage } from "@/lib/types";
 /** What a bubble needs; a question shown before the server stores it has no id yet. */
 type Shown = Pick<ChatMessage, "role" | "content" | "answered_by">;
 
+const TIMESTAMP = /(\d{1,2}:\d{2}(?::\d{2})?)/; // mm:ss or h:mm:ss
+// Square brackets holding one or more timestamps: [04:05], [05:26–06:00] or [07:14, 13:35].
+// The model is asked for one per bracket, but sometimes writes ranges and lists anyway.
+const CITATION =
+  /(\[\d{1,2}:\d{2}(?::\d{2})?(?:\s*[-,\u2010-\u2015]\s*\d{1,2}:\d{2}(?::\d{2})?)*\])/;
+
 const SUGGESTIONS = [
   "What was decided?",
   "What are the action items, and who owns them?",
@@ -177,17 +183,28 @@ function Bubble({ message, onCite }: { message: Shown; onCite?: (ms: number) => 
 }
 
 /**
- * The answer with every [mm:ss] or [h:mm:ss] turned into a button that seeks there.
+ * The answer with every cited timestamp turned into a button that seeks there.
  * It's built from strings and elements, never HTML, so an answer can't inject markup.
  */
 function withCitations(text: string, onCite: (ms: number) => void): ReactNode[] {
-  // Splitting on a capturing group keeps the timestamps: they land at the odd positions.
-  return text.split(/(\[\d{1,2}:\d{2}(?::\d{2})?\])/).map((part, index) => {
-    const ms = index % 2 === 1 ? parseTimestamp(part.slice(1, -1)) : null;
+  // Splitting on a capturing group keeps the matches: they land at the odd positions.
+  return text
+    .split(CITATION)
+    .flatMap((part, index) => (index % 2 === 1 ? citationButtons(part, index, onCite) : [part]));
+}
+
+/** "[05:26–06:00]" becomes "[", a button for 05:26, "–", a button for 06:00, and "]". */
+function citationButtons(
+  group: string,
+  groupIndex: number,
+  onCite: (ms: number) => void,
+): ReactNode[] {
+  return group.split(TIMESTAMP).map((part, index) => {
+    const ms = index % 2 === 1 ? parseTimestamp(part) : null;
     if (ms === null) return part;
     return (
       <button
-        key={index}
+        key={`${groupIndex}-${index}`}
         type="button"
         onClick={() => onCite(ms)}
         className="font-medium text-link tabular-nums hover:underline"

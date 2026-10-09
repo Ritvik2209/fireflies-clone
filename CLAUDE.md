@@ -221,7 +221,7 @@ frontend/src/
   - **Limits:** 500-character questions (422); 10 questions a minute per meeting (429, `TooManyRequestsError`); the last 6 turns are sent as history.
   - **Context:** a transcript over 16,000 characters (about 4,000 tokens; Groq's free plan allows 8,000 a minute) is cut to the FTS5-relevant lines plus their neighbours.
   - **Fallback:** the top 4 matching lines, or the overview if none match.
-  - **Frontend:** Transcript | Ask tabs in the transcript panel. `AskPanel` turns `[mm:ss]` citations into seek buttons that switch back to the transcript.
+  - **Frontend:** Transcript | Ask tabs in the transcript panel. `AskPanel` turns every bracketed timestamp, also inside ranges and lists such as `[05:26–06:00]`, into a seek button that switches back to the transcript. `complete()` strips Markdown bold, which gpt-oss adds despite the plain-text rule.
   - **Tests:** a fake replaces `llm.complete` (no network).
 - **Phase 11 (annotations) implementation choices** (details in ARCHITECTURE.md §9.5):
   - **Detail payload:** `highlight_color`/`comment_count` are model properties on `TranscriptSegment`, fed by two chained `selectinload`s, instead of a GROUP BY query. Soundbites ride along.
