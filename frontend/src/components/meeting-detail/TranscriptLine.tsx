@@ -40,7 +40,7 @@ export const TranscriptLine = memo(function TranscriptLine({
 
   return (
     <li
-      data-index={index}
+      data-line={index}
       aria-current={isActive || undefined}
       onClick={handleClick}
       className={cn(

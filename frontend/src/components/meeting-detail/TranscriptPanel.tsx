@@ -124,7 +124,7 @@ export const TranscriptPanel = memo(function TranscriptPanel({
  * element.scrollIntoView() would also scroll every scrollable ancestor, including the page.
  */
 function scrollToLine(container: HTMLElement | null, index: number) {
-  const line = container?.querySelector<HTMLElement>(`[data-index="${index}"]`);
+  const line = container?.querySelector<HTMLElement>(`[data-line="${index}"]`);
   if (!container || !line) return;
   // offsetTop is measured from the container, because the container is `relative`.
   const top = line.offsetTop - (container.clientHeight - line.offsetHeight) / 2;
