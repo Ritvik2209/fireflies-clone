@@ -7,7 +7,7 @@
 > - creating, editing and deleting meetings and action items, with toasts (§8.6–8.8);
 > - dark mode (§9.1, built before Phase 5 at the owner's request).
 >
-> Names below match the code. Phase 6 verifies the Core Gate on the live app. The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
+> Names below match the code. The Core Gate was verified on the live app in Phase 6 (9 Oct). The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
 
 **Contents:** [1. Overview](#1-system-overview) · [2. Stack](#2-tech-stack) · [3. Repository layout](#3-repository-layout) · [4. Backend](#4-backend) · [5. Frontend](#5-frontend) · [6. Database](#6-database) · [7. API](#7-api) · [8. Core data flows](#8-core-data-flows) · [9. Bonus features](#9-bonus-features) · [10. Deployment](#10-deployment) · [11. Assumptions and trade-offs](#11-assumptions-and-trade-offs)
 

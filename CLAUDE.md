@@ -73,20 +73,23 @@ Real auth (default user), integrations (Zoom/Meet/calendar/CRM), live meeting bo
 
 Verify every item **on the deployed app**, report the results, and wait for the owner's "go" before any bonus:
 
-- [ ] Library lists all seeded meetings with title, date, duration, participants
-- [ ] Search by title, filter by participant and date range, and sort by recency all work
-- [ ] Meeting page shows the transcript with speaker labels and timestamps
-- [ ] Player plays, pauses, seeks; seek bar and time display update
-- [ ] Clicking a transcript line seeks the player; playing/seeking highlights and scrolls to the active line
-- [ ] Transcript search highlights all matches with next/previous navigation
-- [ ] Summary overview, keywords, chapters (click to seek) and action items display
-- [ ] Create a meeting by uploading .txt, .vtt and .json files and by pasting text; summary is generated
-- [ ] Edit title and participants; delete a meeting (with confirmation); data persists after refresh
-- [ ] Add, edit, complete and delete action items; persists after refresh
-- [ ] Toasts on every create/update/delete and on errors
-- [ ] Placeholder pages exist and look like Fireflies; navbar has profile/settings placeholders
-- [ ] Backend tests pass; frontend and backend lint clean
-- [ ] Every core item has been committed and pushed
+**Passed on 9 Oct 2026 (~06:30–07:00 IST), on the live app.** Scripted headless-browser runs covered the library, the player, search, follow mode, creating from every format, and the edit, action-item and delete cycle. Locally: 57 pytest tests, ruff, ESLint, Prettier and the build. Test meetings were deleted afterwards.
+
+
+- [x] Library lists all seeded meetings with title, date, duration, participants
+- [x] Search by title, filter by participant and date range, and sort by recency all work
+- [x] Meeting page shows the transcript with speaker labels and timestamps
+- [x] Player plays, pauses, seeks; seek bar and time display update
+- [x] Clicking a transcript line seeks the player; playing/seeking highlights and scrolls to the active line
+- [x] Transcript search highlights all matches with next/previous navigation
+- [x] Summary overview, keywords, chapters (click to seek) and action items display
+- [x] Create a meeting by uploading .txt, .vtt and .json files and by pasting text; summary is generated
+- [x] Edit title and participants; delete a meeting (with confirmation); data persists after refresh
+- [x] Add, edit, complete and delete action items; persists after refresh
+- [x] Toasts on every create/update/delete and on errors
+- [x] Placeholder pages exist and look like Fireflies; navbar has profile/settings placeholders
+- [x] Backend tests pass; frontend and backend lint clean
+- [x] Every core item has been committed and pushed
 
 ## Structure and rules
 
@@ -316,7 +319,7 @@ npm run build                        # also type-checks
 - [x] **Phase 3: Library page (~2 h).** List, title search, participant and date filters, sort, loading and empty states.
 - [x] **Phase 4: Meeting page (~3 h).** Simulated player, two-way transcript sync, transcript search, summary / keywords / chapters / action-items panels.
 - [x] **Phase 5: CRUD UI + Fireflies experience (~2 h).** Create (upload/paste), edit, delete, action-item management, toasts, placeholder pages, UI pass against the screenshots.
-- [ ] **Phase 6: Core deploy + verification (~45 min).** Deploy, walk the Core Gate on the live link, write the README's core sections, fix anything that fails. Report, then wait for "go".
+- [x] **Phase 6: Core deploy + verification (~45 min).** Deploy, walk the Core Gate on the live link, write the README's core sections, fix anything that fails. Report, then wait for "go".
 
 **Part 2: Bonuses.** Each is its own phase: small commits, its tests, seed updates if relevant, ARCHITECTURE.md data flow, re-check the core, deploy, stop for "go".
 - [x] **Phase 7: Dark mode (~45 min).** Built on 9 Oct (~01:50 IST) *before* Phases 5–6, at the owner's request, because of session limits. Phases 5 and 6 come next; the Core Gate still applies before the other bonuses.
