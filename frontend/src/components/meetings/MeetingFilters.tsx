@@ -32,7 +32,7 @@ export function MeetingFilters({
     <div className="flex flex-wrap items-center gap-2">
       <Select
         aria-label="Filter by participant"
-        className="w-52"
+        className="w-44"
         value={filters.participantId}
         onChange={(event) => onChange({ participantId: event.target.value })}
       >
@@ -46,7 +46,7 @@ export function MeetingFilters({
 
       <Select
         aria-label="Filter by tag"
-        className="w-40"
+        className="w-36"
         value={filters.tagId}
         onChange={(event) => onChange({ tagId: event.target.value })}
       >
@@ -84,7 +84,7 @@ export function MeetingFilters({
 
       <Select
         aria-label="Sort meetings"
-        className="ml-auto w-40"
+        className="ml-auto w-36"
         value={filters.sort}
         onChange={(event) => onChange({ sort: event.target.value as SortOrder })}
       >
