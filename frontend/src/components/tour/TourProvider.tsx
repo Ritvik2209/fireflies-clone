@@ -108,7 +108,10 @@ export function TourProvider({ children }: { children: ReactNode }) {
           onClickTarget={openedMeeting}
         />
       )}
-      {!seen && index === null && <TourWelcome onStart={start} onDismiss={markSeen} />}
+      {/* Offered on the library only, so it never covers a meeting opened from a shared link. */}
+      {!seen && index === null && pathname === "/meetings" && (
+        <TourWelcome onStart={start} onDismiss={markSeen} />
+      )}
     </TourContext.Provider>
   );
 }
