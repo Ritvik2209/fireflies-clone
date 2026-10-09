@@ -104,7 +104,7 @@ flowchart LR
 | `app/meetings/[id]/page.tsx` | Meeting page: notes, transcript and player. |
 | `app/search/page.tsx` | Global search results (bonus 4): `components/search/SearchResults` inside `<Suspense>`. |
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
-| `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1), `AppToaster` (where toasts appear; follows the theme). The top bar's New meeting button opens `CreateMeetingModal`. |
+| `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1), `AppToaster` (where toasts appear; follows the theme). The top bar's New meeting button opens `CreateMeetingModal`. `MobileNav`: the sidebar as a drawer below `lg` (`Sidebar` exports `SidebarContent`, which both use). |
 | `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips), `TagPicker` (bonus 2: toggle and create tags in the edit modal). Extra 3: `MeetingRow` shows a Processing badge or a Failed row (reason and Delete); `ProcessingWatcher` (mounted in the top bar) follows a just-created meeting and toasts when it's ready. |
 | `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportDialog` (3: the download dialog, opened from the player bar), `HighlightsList`, `CommentThread` (inline under a line), `SoundbitesList`, `SoundbiteDialog` (5), `AskPanel` (6). Extras: `SpeakerTalkTime` (2: the talk-time bars), `UnprocessedMeeting` (3: the Processing or Failed view instead of an empty transcript). |
 | `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal` (on the native `<dialog>`), `Field` (label and hint), `Input` (and styled native `Select` and `Textarea`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
@@ -299,6 +299,24 @@ flowchart LR
 - Tailwind, with the purple accent and neutral greys defined once as theme tokens in `globals.css` and matched against the reference screenshots. The app is branded **Glowworm**, with its own simple logo.
 - Avatar and (bonus 2) tag colours arrive from the API as palette keys (`"violet"`, `"amber"`, …) and are mapped in one place to complete, static Tailwind class strings. Tailwind only generates classes it finds written out in the source, so `bg-${color}-500` would silently produce no style.
 - Dark mode (bonus 1): `next-themes` toggles a `dark` class on `<html>`, and the colour tokens get dark values under it (§9.1). White backgrounds use the `surface` token (`bg-surface`), so they can turn dark.
+
+**Responsive layout** (the owner's request, after Extra 3). Tailwind's mobile-first breakpoints; the main one is `lg` (1024 px):
+- **Shell:** from `lg`, the 240 px sidebar sits on the left as before. Below it, the sidebar is hidden, and the top bar's menu button opens `MobileNav`: the same `SidebarContent` in a drawer over a dimmed page. Escape, the backdrop or choosing a link closes it.
+- **Meeting page:** below `lg` there's no room for notes and transcript side by side, so a **Notes | Transcript** tab bar shows one pane at a time.
+  - Each pane keeps its own scroll area, so the transcript's follow-mode scrolling works unchanged.
+  - A time clicked in the notes (a chapter or an action item) also switches to the transcript.
+  - From `lg` the tab bar is hidden, and both panes show (`hidden lg:flex`).
+- **Top bar:**
+  - the section title only from `md`;
+  - below `sm`, the Settings icon is hidden (the profile avatar also links to Settings), and New meeting is icon-only (its `aria-label` keeps the name).
+- **Player bar:** from `sm` the controls are centred as before; below it they follow the time, so the two never overlap.
+- **Other:**
+  - library rows drop the owner's avatar below `sm` (it's the same on every row);
+  - page paddings shrink;
+  - dialogs keep 1 rem side margins (`w-[calc(100%-2rem)]`);
+  - the soundbite dialog's two time fields stack.
+- **Class names:** `cn()` is a plain join with no tailwind-merge. Two conflicting classes would be decided by CSS order, so visibility always uses an explicit pair, such as `hidden` plus `lg:flex`.
+- **Checked** with headless Edge at 390×844 (phone), 820×1180 (tablet) and 1440×900 (desktop): `scrollWidth - innerWidth` is 0 on every page, and the desktop player tests are unchanged.
 
 ## 6. Database
 

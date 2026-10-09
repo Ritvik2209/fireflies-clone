@@ -131,6 +131,9 @@ Three optional features, built in this order. Everything else in this brief stay
    - **Fresh database:** the schema change needs one. Delete `backend/app.db` locally; on Render every deploy starts from a fresh disk.
    - **Documented limitation:** the job runs inside the web process, so it's lost on a restart and can't scale across machines. In production: a job queue (Celery, RQ or Arq with Redis) with retries, and pushed updates (WebSockets or SSE) instead of polling.
 
+### Responsive layout (the owner's request on 9 Oct, after Extra 3)
+The app works on phones and tablets as well as desktops, with no sideways scrolling.
+
 ### Out of scope (placeholders only)
 Real auth (default user), integrations (Zoom/Meet/calendar/CRM), live meeting bot, real speech-to-text, team sharing. The player is simulated.
 
@@ -281,6 +284,18 @@ frontend/src/
     - Edit and delete icons show on hover or keyboard focus.
     - The header's Add is disabled while the add form is open (the form's button says "Add item").
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
+- **Responsive layout** (details in ARCHITECTURE.md §5.4):
+  - **Below `lg` (1024 px):**
+    - the sidebar becomes a drawer (`MobileNav`), opened from the top bar's menu button; Escape, the backdrop or a link closes it;
+    - the meeting page shows **Notes** or **Transcript**, with tabs to switch; a time clicked in the notes switches to the transcript.
+  - **Smaller screens:**
+    - the section title shows from `md`;
+    - below `sm`, the top bar hides the Settings icon and the New meeting label;
+    - player controls follow the time instead of being centred;
+    - library rows drop the owner's avatar;
+    - dialogs keep 1 rem side margins.
+  - **`cn` is a plain join** (no tailwind-merge), so visibility uses explicit pairs such as `hidden lg:flex`, never two conflicting classes.
+  - **Checked** at 390, 820 and 1440 px: no page scrolls sideways.
 - **Extra 3 (background processing) implementation choices** (details in ARCHITECTURE.md §8.6 and §9.8):
   - **Schema:** `meetings.status` (default `ready`) and `error_message`, with CHECKs, so a message exists exactly when the status is `failed`. No index on `status` (nothing filters by it).
   - **Create:** `POST /meetings` validates (422), `processing.start_meeting()` commits the bare meeting as `processing`, and the router answers 202 and schedules `processing.process_meeting()` with `BackgroundTasks`.
@@ -446,6 +461,7 @@ gh run watch <run-id> --exit-status   # non-zero exit if the run fails
 - **Writing files from Python on Windows:** pass `newline="\n"` to `write_text`, or the file gets CRLF line endings (git normalises them, but diffs get noisy).
 - **Visual checks:** take headless screenshots and compare them with `docs/reference/`: `"/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" --headless=new --disable-gpu --hide-scrollbars --user-data-dir=<scratch>/edge-profile --window-size=1440,900 --virtual-time-budget=8000 --screenshot=<file>.png http://localhost:3001/<page>`.
 
+- **Browser tests:** pin the viewport with `Emulation.setDeviceMetricsOverride`. Headless Edge can shrink its own viewport partway through a run (by 34 px here), which made an "is the active line visible" check fail falsely.
 - **New tables or seed data:** `create_all()` creates missing tables on startup but never alters existing ones, and seed data only loads into an empty DB. Locally, delete `backend/app.db`; on Render every deploy starts from a fresh disk. Tell the owner whenever a phase needs this.
 - **FTS5:**
   - `init_db()` creates `segments_fts` and its triggers and runs `'rebuild'` on every start (Phase 10). Local SQLite 3.42 and Render's 3.40.1 both have FTS5.
@@ -497,5 +513,6 @@ gh run watch <run-id> --exit-status   # non-zero exit if the run fails
 - [x] **Extra 1: CI with GitHub Actions (~30 min)**
 - [x] **Extra 2: Speaker analytics (~1 h)**
 - [x] **Extra 3: Background processing for uploads (~1.5 h)**
+- [x] **Responsive layout (the owner's request, ~45 min)**
 
 - [ ] **Phase 13: Final polish and ship (~1.5 h, starts no later than 16:15 IST, whatever state the extras are in).** Final deploy; complete README (setup, stack, architecture overview, schema + ER diagram, API overview, assumptions, which bonuses are done); test everything live; regenerate `INTERVIEW_PREP.md` and update `docs/ARCHITECTURE.md` from the final code (every bonus built); final commit and push; give the owner the GitHub URL and the live URL.
