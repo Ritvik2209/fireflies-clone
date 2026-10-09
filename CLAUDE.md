@@ -5,7 +5,7 @@ Full design, schema, API and data flows: [docs/ARCHITECTURE.md](docs/ARCHITECTUR
 
 ## Ground rules
 
-- **Deadline:** Friday 9 October 2026, 18:00 IST (target ~16:00). **Hard cut-off for bonus work: Friday 15:00 IST.**
+- **Deadline:** Friday 9 October 2026, 18:00 IST (target ~16:00). **Hard cut-off for bonus work: Friday 15:00 IST.** **Phase 13 starts no later than 16:15 IST**; the extras (scope addition, below) run until then.
 - **The owner must explain every line in an interview.** Clarity beats cleverness: explicit, simple, documented code. Short comments only where the *why* isn't obvious.
 - **Scope is locked** (below). Don't add features, libraries, dependencies or pages without asking first.
 - **If the brief is ambiguous or conflicts, ask instead of guessing.**
@@ -66,6 +66,71 @@ No data-fetching library, no UI kit, no ORM other than SQLAlchemy. Ask before ad
 5. **Comments, highlights, soundbites** (Phase 11): highlight a line in a colour (shown in the transcript and in a "Highlights" list; click to seek); comments on a line (add/edit/delete, comment icon with count, thread popover); soundbites = titled time ranges (from a line, or start/end from the player) that play **only** that range.
 6. **"Ask about this meeting" chat** (Phase 12): a chat tab. The backend prompt holds the summary plus `[mm:ss] Speaker:` transcript lines; the model answers only from the transcript and cites timestamps (rendered as seek links). Too-long transcripts → only the most relevant segments, found via FTS5. **No API key → "Relevant moments" fallback from FTS5**, so the demo never breaks. History stored per meeting; key only in a backend env var; limit question length and messages per minute.
 
+### Extras: scope addition (9 Oct 2026, after the six bonuses)
+
+Three optional features, built in this order. Everything else in this brief stays the same.
+- **Time rules:**
+  - The core and the finished bonuses must never break.
+  - An extra that can't be finished and tested in time is reverted.
+  - Phase 13 starts **no later than 16:15 IST**, whatever state the extras are in.
+  - Never leave a half-built feature in the deployed app: order the commits so every push leaves the live app working.
+- **For each extra:**
+  - small commits, each pushed, with CI green after every push;
+  - tests added or updated;
+  - the Core Gate items it could affect re-checked (Extra 3: every create path, `.txt`, `.vtt`, `.json` and paste);
+  - deployed and verified on the live link;
+  - docs updated in the same phase:
+    - ARCHITECTURE.md: new files, endpoints, the schema and ER diagram, a step-by-step data flow;
+    - INTERVIEW_PREP.md: likely questions, trade-offs, what breaks at scale, the production version;
+    - INTERVIEW_HIGHLIGHTS.md: a talking point plus "what it shows about me as an engineer";
+    - README.md: features, API table, schema, CI badge;
+  - then report and wait for "go".
+1. **CI with GitHub Actions** (~30 min). First, because it protects every later commit.
+   - **Workflow:** `.github/workflows/ci.yml` runs on every push and pull request to `main`, with two parallel jobs, each with its own `working-directory`:
+     - **backend:** Python 3.12.7 (as on Render), pip cache, `ruff check`, `ruff format --check`, `pytest`;
+     - **frontend:** Node as on Vercel, npm cache, `npm ci`, `npm run lint`, `npx tsc --noEmit`, `npm run build`.
+   - **No secrets:** the tests never need the LLM key.
+   - **Badge:** a CI status badge goes at the top of the README.
+   - **Every push:** confirm the run is green with `gh run list` / `gh run watch`.
+2. **Speaker analytics** (~1 h), like Fireflies' "Speaker talk time".
+   - **Endpoint:** `GET /api/meetings/{id}/analytics` (404 if missing). `services/analytics_service.py` computes it on every read; it's never stored.
+   - **Per speaker:**
+     - `talk_time_ms` (the sum of `end_ms − start_ms`), `talk_percent`;
+     - `segment_count`, `word_count`, `words_per_minute`;
+     - `question_count` (segments containing `?`);
+     - `longest_monologue_ms` (consecutive segments by one speaker merged into one turn).
+   - **Meeting level:** `total_talk_time_ms`, `speaker_count`, `dominant_speaker`.
+   - **Where it's computed:**
+     - The time and count totals use SQL `GROUP BY speaker_id`; words and monologues are computed in Python.
+     - ARCHITECTURE.md explains why each runs where it does, and when to cache or precompute instead.
+   - **Tests:** a Pydantic response model, and pytest on a hand-built transcript with known numbers (single speaker, a zero-length segment, back-to-back turns).
+   - **Frontend:**
+     - an Analytics tab or card;
+     - one plain Tailwind bar per speaker (talk-time %, in their avatar colour; no chart library), plus words per minute, questions and longest monologue;
+     - dark mode, loading and empty states;
+     - data through `lib/api.ts` and `lib/types.ts`.
+3. **Background processing for uploads** (~1.5 h). Riskiest, so last: it changes the core create flow.
+   - **Schema:**
+     - `meetings.status`: TEXT NOT NULL, CHECK `processing`/`ready`/`failed`, default `ready` (seed data is ready);
+     - `meetings.error_message`: nullable, set only when failed;
+     - an index on `status` only if a query filters on it.
+   - **Create:** `POST /meetings` validates synchronously, with a 422 for missing fields, an unknown format or an empty transcript. It saves the meeting as `processing` and returns **202 Accepted**.
+   - **Background job:**
+     - a `BackgroundTasks` job in `services/processing_service.py` opens its own session;
+     - in one transaction it parses, saves participants, segments and notes, and sets `ready`;
+     - or it saves nothing and sets `failed` with a readable `error_message`. Parse errors fail the meeting, never the server.
+   - **Frontend:**
+     - a "Processing your transcript…" toast, and a **Processing** badge on the library row;
+     - a reusable `useMeetingStatus` hook polls `GET /meetings/{id}` every ~1.5 s, stopping on ready or failed, on unmount, or after a timeout;
+     - ready → success toast; failed → error toast, a **Failed** badge with the message, and Delete;
+     - opening a processing meeting shows "Processing…".
+   - **Tests:**
+     - 202, then `ready` with segments and a summary;
+     - a malformed transcript ends `failed`, with no partial segments;
+     - the existing create tests updated for 202.
+   - **Fresh database:** the schema change needs one. Delete `backend/app.db` locally; on Render every deploy starts from a fresh disk.
+   - **Documented limitation:** the job runs inside the web process, so it's lost on a restart and can't scale across machines. In production: a job queue (Celery, RQ or Arq with Redis) with retries, and pushed updates (WebSockets or SSE) instead of polling.
+
 ### Out of scope (placeholders only)
 Real auth (default user), integrations (Zoom/Meet/calendar/CRM), live meeting bot, real speech-to-text, team sharing. The player is simulated.
 
@@ -95,6 +160,7 @@ Verify every item **on the deployed app**, report the results, and wait for the 
 
 ```text
 render.yaml        Render Blueprint for the backend (Phase 1); plus Vercel config if needed
+.github/workflows/ci.yml   CI: backend and frontend checks on every push and PR to main (Extra 1)
 backend/app/
   main.py          app, CORS, routers under /api, error handlers, startup (create tables, seed if empty)
   config.py        settings from env vars
@@ -105,7 +171,8 @@ backend/app/
   schemas/         Pydantic request/response models
   routers/         HTTP only: validate → call a service → return
   services/        business logic: meetings, participants, action_items, summary_generator
-                   (+ tags, export, search, annotations, chat in their bonus phases)
+                   (+ tags, export, search, annotations, chat in their bonus phases;
+                   analytics_service, processing_service in the extras)
   llm/             LLM client wrapper + prompt building (bonus 6), isolated so the provider is swappable
   parsers/         txt / vtt / json parsers + dispatcher → list[ParsedSegment]
   seed/            seed_data.json + seed.py
@@ -116,7 +183,7 @@ backend/pyproject.toml                            ruff + pytest config
 frontend/src/
   app/             routes: /meetings, /meetings/[id], /search, /settings, /integrations, /team, /record
   components/      layout/, meetings/, meeting-detail/, ui/ (see ARCHITECTURE.md §3)
-  hooks/           usePlayer, useDebounce
+  hooks/           usePlayer, useDebounce (+ useMeetingStatus, Extra 3)
   lib/             api.ts (typed fetch client), types.ts, format.ts, url.ts, transcript.ts (pure helpers)
 ```
 
@@ -268,6 +335,7 @@ frontend/src/
 
 - **Core tables (Phase 2):** `users` 1─N `meetings` · `meetings` N─M `participants` via `meeting_participants` · `meetings` 1─N `transcript_segments` (ordered by `position`; `speaker_id` → participants) · `meetings` 1─1 `summaries` (UNIQUE `meeting_id`; `keywords` is a JSON list on purpose, because it is display-only) · `meetings` 1─N `chapters` (ordered) · `meetings` 1─N `action_items` (`assignee_id` → participants, nullable).
 - **Bonus tables, each created in its own phase:** `tags` + `meeting_tags` (Phase 8) · `segments_fts`, an external-content FTS5 table over `transcript_segments.text` kept in sync by AFTER INSERT/UPDATE/DELETE triggers (Phase 10) · `highlights` (UNIQUE `(segment_id, user_id)`; colour yellow/green/blue/pink), `segment_comments`, `soundbites` (a meeting-level time range; `end_ms > start_ms`; the service also checks `end_ms ≤ duration_ms`) (Phase 11) · `chat_messages` (role user/assistant; `answered_by` llm/fallback) (Phase 12).
+- **Extra 3:** `meetings.status` (processing / ready / failed, default ready) and `meetings.error_message` (nullable, set only when failed).
 - **Delete rules:** deleting a meeting cascades to its segments (and through them to highlights and comments), summary, chapters, action items, soundbites, chat messages and association rows (FTS rows via triggers); never to participants, tags or the user. `speaker_id` RESTRICT; `assignee_id` SET NULL; deleting a tag only removes its links; `user_id` columns CASCADE.
 
 ## API summary (prefix `/api`; full tables: ARCHITECTURE.md §7)
@@ -278,6 +346,7 @@ frontend/src/
 - **Bonus 4:** `GET /search?q=`.
 - **Bonus 5:** `PUT, DELETE /segments/{id}/highlight` · `GET, POST /segments/{id}/comments` · `PATCH, DELETE /comments/{id}` · `GET, POST /meetings/{id}/soundbites` · `PATCH, DELETE /soundbites/{id}`.
 - **Bonus 6:** `GET, POST, DELETE /meetings/{id}/chat`.
+- **Extra 2:** `GET /meetings/{id}/analytics`. **Extra 3:** `POST /meetings` returns 202 with the meeting as `processing`; meetings carry `status` and `error_message`.
 
 Pydantic request/response models on every route; consistent error JSON; CORS limited to `CORS_ORIGINS`; interactive docs at `/docs`.
 
@@ -376,6 +445,11 @@ npm run build                        # also type-checks
 - [x] **Phase 11: Comments, highlights, soundbites (~2.5 h)**
 - [x] **Phase 12: "Ask about this meeting" chat (~2 h).** Before starting, ask the owner which LLM provider to use and to add the key on Render.
 
-**Hard cut-off: Friday 15:00 IST.** A bonus still in progress then is finished within 15 minutes or reverted; then move to Phase 13. Never leave a half-built bonus in the deployed app.
+**Hard cut-off: Friday 15:00 IST** for the six bonuses (all done by 12:05). Never leave a half-built bonus in the deployed app.
 
-- [ ] **Phase 13: Final polish and ship (~1.5 h, starts no later than 15:00).** Final deploy; complete README (setup, stack, architecture overview, schema + ER diagram, API overview, assumptions, which bonuses are done); test everything live; regenerate `INTERVIEW_PREP.md` and update `docs/ARCHITECTURE.md` from the final code (every bonus built); final commit and push; give the owner the GitHub URL and the live URL.
+**Part 3: Extras** (scope addition; details under Locked scope). Phase 13 starts no later than 16:15 IST, whatever state they are in; an unfinished extra is reverted.
+- [ ] **Extra 1: CI with GitHub Actions (~30 min)**
+- [ ] **Extra 2: Speaker analytics (~1 h)**
+- [ ] **Extra 3: Background processing for uploads (~1.5 h)**
+
+- [ ] **Phase 13: Final polish and ship (~1.5 h, starts no later than 16:15 IST, whatever state the extras are in).** Final deploy; complete README (setup, stack, architecture overview, schema + ER diagram, API overview, assumptions, which bonuses are done); test everything live; regenerate `INTERVIEW_PREP.md` and update `docs/ARCHITECTURE.md` from the final code (every bonus built); final commit and push; give the owner the GitHub URL and the live URL.
