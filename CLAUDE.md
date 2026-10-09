@@ -281,6 +281,12 @@ frontend/src/
     - Edit and delete icons show on hover or keyboard focus.
     - The header's Add is disabled while the add form is open (the form's button says "Add item").
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
+- **Extra 1 (CI) implementation choices** (details in ARCHITECTURE.md §10.1):
+  - **Workflow:** `.github/workflows/ci.yml` runs two parallel jobs on every push and pull request to `main`. A newer push cancels the older run.
+  - **Versions:** Python 3.12.7, as on Render. Node comes from `"engines": {"node": "22.x"}` in `frontend/package.json`, which Vercel also honours; the lockfile root has the same entry.
+  - **Backend job:** installs `requirements-dev.txt` (runtime deps plus ruff, pytest and httpx), then runs `ruff check`, `ruff format --check` and `pytest`.
+  - **Frontend job:** `npm ci`, `npm run lint`, `npm run format:check`, `npx next typegen` (route types for tsc), `npx tsc --noEmit` and `npm run build`.
+  - **Deploys:** they don't wait for CI (Vercel and Render build in parallel). After every push, confirm the run is green.
 - **Phase 12 (chat) implementation choices** (details in ARCHITECTURE.md §9.6):
   - **Provider:** Groq through `openai==3.26.1` (base URL `https://api.groq.com/openai/v1`), default model `openai/gpt-oss-120b`, a reasoning model asked for `reasoning_effort="low"` (left out for other models). The first choice, `llama-3.3-70b-versatile`, has been Enterprise-only since 16 Aug 2026.
   - **Key handling:** `render.yaml` sets the provider and model; `LLM_API_KEY` is `sync: false` (dashboard only). Without a key, the chat uses the search fallback. The key is whitespace-stripped, and `/api/health` reports `llm_configured` (never the key).
@@ -398,6 +404,12 @@ npm run format                       # Prettier; format:check in CI style
 npm run build                        # also type-checks
 ```
 
+CI, after every push (GitHub CLI):
+```powershell
+gh run list --limit 3
+gh run watch <run-id> --exit-status   # non-zero exit if the run fails
+```
+
 ## Known gotchas
 
 - **Dev machine:** port 3000 belongs to Docker (a Grafana container). Never stop it; run the frontend on **3001** (the backend's local CORS default allows 3000 and 3001). Windows PowerShell's `Invoke-WebRequest` to `localhost` is very slow; use `curl` (Git Bash).
@@ -448,7 +460,7 @@ npm run build                        # also type-checks
 **Hard cut-off: Friday 15:00 IST** for the six bonuses (all done by 12:05). Never leave a half-built bonus in the deployed app.
 
 **Part 3: Extras** (scope addition; details under Locked scope). Phase 13 starts no later than 16:15 IST, whatever state they are in; an unfinished extra is reverted.
-- [ ] **Extra 1: CI with GitHub Actions (~30 min)**
+- [x] **Extra 1: CI with GitHub Actions (~30 min)**
 - [ ] **Extra 2: Speaker analytics (~1 h)**
 - [ ] **Extra 3: Background processing for uploads (~1.5 h)**
 

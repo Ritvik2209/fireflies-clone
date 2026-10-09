@@ -1,5 +1,7 @@
 # Glowworm
 
+[![CI](https://github.com/Ritvik2209/fireflies-clone/actions/workflows/ci.yml/badge.svg)](https://github.com/Ritvik2209/fireflies-clone/actions/workflows/ci.yml)
+
 A clone of the Fireflies.ai meeting assistant, built as an SDE Fullstack take-home. It has:
 - a library of past meetings;
 - a transcript synced with a simulated media player;
@@ -39,7 +41,13 @@ Design notes, the database schema with an ER diagram, the full API reference and
 
 **Fireflies-style shell:** sidebar navigation, a top bar with search, New meeting, settings and profile, and "Coming soon" pages for Record, Integrations, Team and Settings.
 
-**Bonus features done so far:** dark mode. A toggle in the top bar follows the system setting until you pick a theme, and remembers your choice.
+**Bonus features (all six built):**
+- **Dark mode:** a top-bar toggle that follows the system setting until you pick a theme, and remembers your choice.
+- **Tags:** coloured tags on meetings, managed in the Edit dialog; filter the library by tag.
+- **Export:** the transcript or the summary as TXT, Markdown or PDF.
+- **Global search:** full-text search over every transcript (SQLite FTS5) with highlighted snippets; a result opens the meeting at that moment.
+- **Highlights, comments and soundbites:** colour a transcript line, discuss it in a comment thread, or save a titled clip that plays only its range.
+- **"Ask about this meeting":** a chat that answers from the transcript (Groq, `openai/gpt-oss-120b`) and cites clickable timestamps. Without an API key it answers from search instead.
 
 ## Tech stack
 
@@ -47,9 +55,10 @@ Design notes, the database schema with an ER diagram, the full API reference and
 |---|---|
 | Frontend | Next.js 16 (App Router), TypeScript (strict), Tailwind CSS v4, lucide-react, sonner (toasts), next-themes |
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.0 (sync), Pydantic v2 |
-| Database | SQLite (own schema; FTS5 is available for the global-search bonus) |
+| Database | SQLite (own schema) with FTS5 full-text search |
+| AI chat | Groq (`openai/gpt-oss-120b`) through the official `openai` SDK, called from the backend only |
 | Hosting | Vercel (frontend) · Render (backend, `render.yaml` Blueprint) |
-| Quality | pytest, ruff, ESLint, Prettier |
+| Quality | pytest, ruff, ESLint, Prettier; GitHub Actions CI on every push and pull request |
 
 ## Run it locally
 
@@ -81,6 +90,8 @@ The frontend calls `http://localhost:8000` by default, and the backend's default
 |---|---|---|
 | `DATABASE_URL` | backend | `sqlite:///./app.db` |
 | `CORS_ORIGINS` | backend, comma-separated | `http://localhost:3000,http://localhost:3001` |
+| `LLM_PROVIDER`, `LLM_MODEL` | backend (chat) | `groq`, `openai/gpt-oss-120b` |
+| `LLM_API_KEY` | backend only, never the frontend (chat) | unset: the chat answers from search |
 | `NEXT_PUBLIC_API_URL` | frontend, baked in at build time | `http://localhost:8000` |
 
 ## Transcript formats
@@ -106,9 +117,15 @@ The six seeded meetings have hand-written notes. New meetings get notes from a r
 ## Tests and checks
 
 ```bash
-cd backend && pytest && ruff check . && ruff format --check .            # 57 tests: parsers, generator, API
+cd backend && pytest && ruff check . && ruff format --check .            # 81 tests: parsers, generator, every API area
 cd frontend && npm run lint && npx prettier --check . && npm run build   # build also type-checks
 ```
+
+**Continuous integration:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request to `main`, as two parallel GitHub Actions jobs:
+- **Backend:** Python 3.12.7, the same as Render: `ruff check`, `ruff format --check`, `pytest`.
+- **Frontend:** Node 22, from `engines` in `package.json`, which Vercel also uses: `npm ci`, `npm run lint`, `npm run format:check`, `npx next typegen`, `npx tsc --noEmit`, `npm run build`.
+
+No secrets are needed: the chat tests replace the LLM with a fake. The badge at the top shows the latest result.
 
 ## Deployment
 
@@ -118,7 +135,7 @@ cd frontend && npm run lint && npx prettier --check . && npm run build   # build
   - `CORS_ORIGINS` is set there to the Vercel address.
   - To deploy your own: Render dashboard → New → Blueprint → pick the repository.
 - **Frontend (Vercel):** import the repository with root directory `frontend/`, and set `NEXT_PUBLIC_API_URL` to the Render URL.
-- **Updates:** both redeploy automatically on every push to `main`.
+- **Updates:** both redeploy automatically on every push to `main`. CI runs alongside the deploys and doesn't block them yet (see ARCHITECTURE.md §10.1).
 
 ## Assumptions and trade-offs
 
@@ -138,4 +155,5 @@ backend/samples/  example transcripts in every supported format
 frontend/src/     Next.js app: app/ (routes), components/, hooks/ (player clock), lib/ (API client, helpers)
 docs/             ARCHITECTURE.md: design, schema, API and data flows
 render.yaml       Render Blueprint for the backend
+.github/         CI workflow (GitHub Actions)
 ```
