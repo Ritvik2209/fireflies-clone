@@ -2,7 +2,7 @@
 
 import { CircleAlert, VideoOff } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { MeetingWorkspace } from "@/components/meeting-detail/MeetingWorkspace";
 import { Button, buttonClasses } from "@/components/ui/Button";
@@ -43,6 +43,13 @@ export function MeetingView({ id }: { id: string }) {
     return () => controller.abort();
   }, [meetingId, requestKey]);
 
+  // Edits and action-item changes update the loaded meeting in place, without refetching it.
+  const changeMeeting = useCallback((update: (meeting: MeetingDetail) => MeetingDetail) => {
+    setLoaded((current) =>
+      current?.meeting ? { ...current, meeting: update(current.meeting) } : current,
+    );
+  }, []);
+
   if (meetingId === null) return <MeetingNotFound />;
   if (loaded?.key !== requestKey) return <MeetingSkeleton />;
   if (loaded.notFound) return <MeetingNotFound />;
@@ -60,7 +67,9 @@ export function MeetingView({ id }: { id: string }) {
     );
   }
   // The key gives each meeting a fresh player (back at 00:00) when the URL changes.
-  return <MeetingWorkspace key={loaded.meeting.id} meeting={loaded.meeting} />;
+  return (
+    <MeetingWorkspace key={loaded.meeting.id} meeting={loaded.meeting} onChange={changeMeeting} />
+  );
 }
 
 function MeetingNotFound() {

@@ -8,7 +8,9 @@ import type { ActionItem, Chapter, Participant, Summary } from "@/lib/types";
 interface SummaryPanelProps {
   summary: Summary | null;
   chapters: Chapter[];
+  meetingId: number;
   actionItems: ActionItem[];
+  onActionItemsChange: (update: (items: ActionItem[]) => ActionItem[]) => void;
   people: Map<number, Participant>;
   durationMs: number;
   activeChapter: number;
@@ -22,7 +24,9 @@ interface SummaryPanelProps {
 export const SummaryPanel = memo(function SummaryPanel({
   summary,
   chapters,
+  meetingId,
   actionItems,
+  onActionItemsChange,
   people,
   durationMs,
   activeChapter,
@@ -73,7 +77,13 @@ export const SummaryPanel = memo(function SummaryPanel({
         activeIndex={activeChapter}
         onSeek={onSeek}
       />
-      <ActionItemsList items={actionItems} people={people} onSeek={onSeek} />
+      <ActionItemsList
+        meetingId={meetingId}
+        items={actionItems}
+        people={people}
+        onSeek={onSeek}
+        onItemsChange={onActionItemsChange}
+      />
     </div>
   );
 });
