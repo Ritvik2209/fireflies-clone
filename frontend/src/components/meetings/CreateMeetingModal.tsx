@@ -12,8 +12,9 @@ import { Input, Select, Textarea } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { createMeeting, errorMessage, listParticipants } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { announceMeetingsChanged } from "@/lib/events";
 import { toDateTimeLocal } from "@/lib/format";
-import type { TranscriptFormat } from "@/lib/types";
+import type { MeetingListItem, TranscriptFormat } from "@/lib/types";
 
 const MAX_FILE_BYTES = 1_000_000; // the API accepts up to 1,000,000 characters
 const FORMATS: Record<TranscriptFormat, string> = {
@@ -33,7 +34,12 @@ interface ChosenFile {
  * "New meeting": title, date, participants, and a transcript uploaded as a file or pasted.
  * The browser reads the file; the backend parses it and writes the AI notes.
  */
-export function CreateMeetingModal({ onClose }: { onClose: () => void }) {
+interface CreateMeetingModalProps {
+  onClose: () => void;
+  onCreated: (meeting: MeetingListItem) => void; // the top bar follows its processing
+}
+
+export function CreateMeetingModal({ onClose, onCreated }: CreateMeetingModalProps) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(() => toDateTimeLocal(new Date()));
@@ -85,9 +91,17 @@ export function CreateMeetingModal({ onClose }: { onClose: () => void }) {
         format: transcript.format,
         source,
       });
-      toast.success(`Created “${meeting.title}”`);
+      // The transcript is parsed in the background (Extra 3): the library shows the new row
+      // as Processing, and it tells the user when the meeting is ready.
+      if (meeting.status === "processing") {
+        toast("Processing your transcript…");
+        onCreated(meeting);
+      } else {
+        toast.success(`Created “${meeting.title}”`);
+      }
       onClose();
-      router.push(`/meetings/${meeting.id}`);
+      router.push("/meetings");
+      announceMeetingsChanged(); // a library that is already open reloads its list
     } catch (error) {
       toast.error(errorMessage(error)); // e.g. "Line 4: expected '[HH:MM:SS] Speaker: text'"
       setSaving(false);

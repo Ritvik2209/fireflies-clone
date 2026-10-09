@@ -8,6 +8,7 @@ import { type LibraryFilters, MeetingFilters } from "@/components/meetings/Meeti
 import { MeetingList } from "@/components/meetings/MeetingList";
 import { useDebounce } from "@/hooks/useDebounce";
 import { errorMessage, listMeetings, listParticipants, listTags } from "@/lib/api";
+import { onMeetingsChanged } from "@/lib/events";
 import { endOfLocalDayIso, startOfLocalDayIso } from "@/lib/format";
 import type { MeetingListItem, Participant, Tag } from "@/lib/types";
 import { replaceSearchParams } from "@/lib/url";
@@ -61,6 +62,9 @@ export function MeetingsLibrary() {
       .catch(() => {}); // likewise "All tags"
     return () => controller.abort();
   }, []);
+
+  // A meeting was created or deleted elsewhere (the top bar's dialog): load the list again.
+  useEffect(() => onMeetingsChanged(() => setAttempt((current) => current + 1)), []);
 
   useEffect(() => {
     // Aborting makes sure a slow, outdated response can never replace a newer one.

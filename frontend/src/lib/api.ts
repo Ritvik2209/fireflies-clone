@@ -108,8 +108,9 @@ export function listParticipants(signal?: AbortSignal): Promise<Participant[]> {
   return request<Participant[]>("/participants", { signal });
 }
 
-export function createMeeting(input: MeetingCreateInput): Promise<MeetingDetail> {
-  return sendJson<MeetingDetail>("POST", "/meetings", input);
+/** Accepted (202): the meeting comes back "processing"; poll getMeeting until it's ready. */
+export function createMeeting(input: MeetingCreateInput): Promise<MeetingListItem> {
+  return sendJson<MeetingListItem>("POST", "/meetings", input);
 }
 
 export function updateMeeting(id: number, changes: MeetingUpdateInput): Promise<MeetingDetail> {

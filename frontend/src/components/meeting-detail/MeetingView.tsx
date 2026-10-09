@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { MeetingWorkspace } from "@/components/meeting-detail/MeetingWorkspace";
+import { UnprocessedMeeting } from "@/components/meeting-detail/UnprocessedMeeting";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -64,6 +65,15 @@ export function MeetingView({ id, startAt }: { id: string; startAt?: number }) {
           Try again
         </Button>
       </EmptyState>
+    );
+  }
+  if (loaded.meeting.status !== "ready") {
+    // Extra 3: still processing (it's polled, then shown here) or failed.
+    return (
+      <UnprocessedMeeting
+        meeting={loaded.meeting}
+        onSettled={(meeting) => setLoaded({ key: requestKey, meeting })}
+      />
     );
   }
   // The key gives each meeting (and each ?t= start) a fresh player when the URL changes.

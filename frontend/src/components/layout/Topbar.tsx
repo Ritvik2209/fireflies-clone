@@ -9,13 +9,16 @@ import { sectionTitle } from "@/components/layout/navigation";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TopbarSearch, TopbarSearchPlaceholder } from "@/components/layout/TopbarSearch";
 import { CreateMeetingModal } from "@/components/meetings/CreateMeetingModal";
+import { ProcessingWatcher } from "@/components/meetings/ProcessingWatcher";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { CURRENT_USER } from "@/lib/currentUser";
+import type { MeetingListItem } from "@/lib/types";
 
 export function Topbar() {
   const pathname = usePathname();
   const [creating, setCreating] = useState(false); // the New meeting modal is open
+  const [created, setCreated] = useState<MeetingListItem[]>([]); // being processed (Extra 3)
 
   return (
     <header className="flex h-[60px] shrink-0 items-center gap-4 border-b border-gray-200 bg-surface px-6">
@@ -49,7 +52,15 @@ export function Topbar() {
           <Avatar name={CURRENT_USER.name} color={CURRENT_USER.avatarColor} />
         </Link>
       </div>
-      {creating && <CreateMeetingModal onClose={() => setCreating(false)} />}
+      {creating && (
+        <CreateMeetingModal
+          onClose={() => setCreating(false)}
+          onCreated={(meeting) => setCreated((current) => [...current, meeting])}
+        />
+      )}
+      {created.map((meeting) => (
+        <ProcessingWatcher key={meeting.id} meeting={meeting} />
+      ))}
     </header>
   );
 }

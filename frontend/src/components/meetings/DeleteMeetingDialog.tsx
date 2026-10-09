@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { deleteMeeting, errorMessage } from "@/lib/api";
+import { announceMeetingsChanged } from "@/lib/events";
 import type { MeetingDetail } from "@/lib/types";
 
 interface DeleteMeetingDialogProps {
@@ -25,6 +26,7 @@ export function DeleteMeetingDialog({ meeting, onClose }: DeleteMeetingDialogPro
       await deleteMeeting(meeting.id);
       toast.success(`Deleted “${meeting.title}”`);
       router.push("/meetings");
+      announceMeetingsChanged(); // when deleting from the library itself, it reloads
     } catch (error) {
       toast.error(errorMessage(error));
       setDeleting(false);

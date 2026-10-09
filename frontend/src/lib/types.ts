@@ -24,6 +24,9 @@ export interface Tag {
 }
 
 /** One row of GET /api/meetings (backend/app/schemas/meeting.py: MeetingListItem) */
+/** Extra 3: an upload is "processing" until the background job makes it "ready" or "failed". */
+export type MeetingStatus = "processing" | "ready" | "failed";
+
 export interface MeetingListItem {
   id: number;
   title: string;
@@ -32,6 +35,8 @@ export interface MeetingListItem {
   source: MeetingSource;
   participants: Participant[];
   tags: Tag[]; // sorted by name
+  status: MeetingStatus;
+  error_message: string | null; // why processing failed
 }
 
 /** One transcript line (backend/app/schemas/transcript.py). The speaker is a meeting participant. */
