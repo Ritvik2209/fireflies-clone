@@ -70,6 +70,7 @@ def test_summary_markdown_has_every_section(client: TestClient) -> None:
     for heading in ("## Overview", "## Keywords", "## Chapters", "## Action items"):
         assert heading in markdown
     assert f"- [x] {item['text']}" in markdown  # completed items are ticked task-list entries
+    assert "\n\n\n" not in markdown  # one blank line between blocks
 
 
 def test_pdf_handles_text_beyond_latin_1(client: TestClient) -> None:

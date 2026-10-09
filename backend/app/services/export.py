@@ -147,7 +147,9 @@ def _to_text(outline: Outline) -> str:
 def _to_markdown(outline: Outline) -> str:
     out = [f"# {outline.title}", "", *(f"- {detail}" for detail in outline.details)]
     for section in outline.sections:
-        out += ["", f"## {section.heading}", ""]
+        if out[-1] != "":
+            out.append("")  # exactly one blank line before each heading
+        out += [f"## {section.heading}", ""]
         for item in section.items:
             if item.kind == "line":
                 out += [f"**{item.label}**  ", item.text, ""]
