@@ -1,0 +1,55 @@
+# CI: on every push and pull request to main, check the backend and the frontend in parallel.
+# No secrets are needed: the chat tests replace the LLM with a fake, so they never call Groq.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A newer push to the same branch cancels the older run that's still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (ruff, pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12.7" # the version Render runs (PYTHON_VERSION in render.yaml)
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      # requirements-dev.txt is requirements.txt (what Render installs) plus ruff, pytest and httpx.
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest
+
+  frontend:
+    name: Frontend (lint, types, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          # "engines" in package.json: the same Node version Vercel builds with.
+          node-version-file: frontend/package.json
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      # tsc needs Next's generated route types (PageProps); a fresh checkout has none yet.
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+      - run: npm run build
