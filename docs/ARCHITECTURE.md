@@ -976,6 +976,10 @@ It's raw SQL through `text()`, because SQLAlchemy has no model for virtual table
   - **Enter** on the library or any other page opens `/search?q=…`. The search page also lists meetings whose **title** matches, so Enter in the library loses nothing.
 - **`SearchResults`** (`components/search/`): "Meeting titles" (`MeetingRow`s), then "In transcripts". Hits are grouped by meeting in ranking order; each shows the speaker's avatar and name, the timestamp and the snippet.
 - **Snippets:** split on `\u0002`/`\u0003` and rendered as `<mark>` elements, never as HTML.
+- **Discoverable from the library.** Typing there filters titles, so global search shouldn't depend on knowing Enter:
+  - with no title match, the empty state offers **Search transcripts**;
+  - with matches, the count line links to **Search transcripts too**.
+  (The owner missed Enter when first testing, which is why these exist.)
 - **States:** a prompt with no query, "No results for …", and an error with Try again. The top bar shows "Search".
 - **A hit** links to `/meetings/{id}?t={start_ms}`. The meeting route reads `t` on the server (`searchParams`) and passes it down, and `usePlayer(duration, startMs)` **starts the clock there**. No seek-after-load effect is needed: the active line is computed from the first render, and the auto-scroll effect brings it into view. The workspace is keyed by meeting id and start, so a new `?t=` gives a fresh player.
 

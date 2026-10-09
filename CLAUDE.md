@@ -220,6 +220,7 @@ frontend/src/
     - Results are ranked with bm25, limited to 50 and scoped to the owner.
     - Snippets mark matches with `\x02`/`\x03`; each result includes `speaker_color`.
   - **Top bar:** typing stays live on `/meetings` (titles) and `/search` (transcripts); Enter elsewhere, and on the library, opens `/search`, which lists title matches first.
+    - The library also links to `/search` ("Search transcripts" when no title matches, "Search transcripts too" next to the count), because Enter alone wasn't discoverable.
   - **`?t=<ms>`:** read by the meeting route on the server and passed as `startAt`, so `usePlayer(duration, startMs)` starts there. The workspace is keyed by `id:startAt`.
 - **Phase 9 (export) implementation choices** (details in ARCHITECTURE.md §9.3):
   - **Backend:** one outline with three renderers (`services/export.py`).
