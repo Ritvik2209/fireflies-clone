@@ -25,6 +25,7 @@ export function MeetingRow({ meeting: listed }: { meeting: MeetingListItem }) {
   return (
     <Link
       href={`/meetings/${meeting.id}`}
+      data-tour="meeting-row"
       className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-surface px-4 py-3 transition-colors hover:border-gray-300 hover:bg-gray-25 sm:gap-4 sm:px-5 sm:py-4"
     >
       {/* Like Fireflies, the row shows the meeting owner (every meeting here is the user's).

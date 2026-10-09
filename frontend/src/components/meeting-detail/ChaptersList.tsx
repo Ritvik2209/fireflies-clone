@@ -14,7 +14,7 @@ export function ChaptersList({ chapters, durationMs, activeIndex, onSeek }: Chap
   if (chapters.length === 0) return null;
 
   return (
-    <section className="mt-8">
+    <section className="mt-8" data-tour="chapters">
       <h3 className="text-[15px] font-semibold text-gray-900">Chapters</h3>
       <ol className="mt-2 -mx-3 space-y-0.5">
         {chapters.map((chapter, index) => {

@@ -33,7 +33,7 @@ export function MediaPlayer({
   const position = `${formatTimestamp(currentMs)} of ${formatTimestamp(durationMs)}`;
 
   return (
-    <div className="shrink-0 border-t border-gray-200 bg-surface">
+    <div data-tour="player" className="shrink-0 border-t border-gray-200 bg-surface">
       {/* A native range input: keyboard (arrow keys move 1 s) and screen-reader support for free. */}
       <input
         type="range"

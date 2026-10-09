@@ -29,7 +29,7 @@ export function MeetingFilters({
   onClear,
 }: MeetingFiltersProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div data-tour="filters" className="flex flex-wrap items-center gap-2">
       <Select
         aria-label="Filter by participant"
         className="w-44"

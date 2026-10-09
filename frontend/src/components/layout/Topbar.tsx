@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, Settings, Upload } from "lucide-react";
+import { Compass, Menu, Settings, Upload } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TopbarSearch, TopbarSearchPlaceholder } from "@/components/layout/TopbarSearch";
 import { CreateMeetingModal } from "@/components/meetings/CreateMeetingModal";
 import { ProcessingWatcher } from "@/components/meetings/ProcessingWatcher";
+import { useTour } from "@/components/tour/TourProvider";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
@@ -22,6 +23,7 @@ export function Topbar() {
   const [creating, setCreating] = useState(false); // the New meeting modal is open
   const [created, setCreated] = useState<MeetingListItem[]>([]); // being processed (Extra 3)
   const [menuOpen, setMenuOpen] = useState(false); // the navigation drawer, below lg
+  const tour = useTour();
 
   return (
     <header className="flex h-[60px] shrink-0 items-center gap-2 border-b border-gray-200 bg-surface px-3 sm:gap-4 sm:px-6">
@@ -46,6 +48,14 @@ export function Topbar() {
 
       <div className="flex items-center gap-1 sm:gap-2">
         <ThemeToggle />
+        <IconButton
+          icon={Compass}
+          label="Take the tour"
+          iconClassName="size-5"
+          className="size-9"
+          data-tour="tour-button"
+          onClick={tour.start}
+        />
         <Link
           href="/settings"
           aria-label="Settings"
@@ -54,7 +64,12 @@ export function Topbar() {
           <Settings className="size-5" aria-hidden />
         </Link>
         {/* On phones only the icon shows; the label stays for screen readers. */}
-        <Button icon={Upload} onClick={() => setCreating(true)} aria-label="New meeting">
+        <Button
+          icon={Upload}
+          onClick={() => setCreating(true)}
+          aria-label="New meeting"
+          data-tour="new-meeting"
+        >
           <span className="hidden sm:inline">New meeting</span>
         </Button>
         <Link

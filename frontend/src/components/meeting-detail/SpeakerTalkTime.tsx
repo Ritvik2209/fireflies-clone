@@ -32,7 +32,7 @@ export function SpeakerTalkTime({ meetingId }: { meetingId: number }) {
   }, [meetingId]);
 
   return (
-    <section className="mt-8">
+    <section className="mt-8" data-tour="talk-time">
       <h3 className="flex items-center gap-2 text-[15px] font-semibold text-gray-900">
         <AudioLines className="size-4 text-gray-500" aria-hidden />
         Speaker talk time

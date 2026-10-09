@@ -5,6 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { AppToaster } from "@/components/layout/AppToaster";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { TourProvider } from "@/components/tour/TourProvider";
 
 import "./globals.css";
 
@@ -29,15 +30,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           enableSystem
           disableTransitionOnChange
         >
-          <div className="flex h-screen">
-            <Sidebar />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <Topbar />
-              {/* relative: absolutely positioned children (e.g. sr-only text) stay inside main's
+          {/* The optional intro tour spans pages, so it wraps the whole shell. */}
+          <TourProvider>
+            <div className="flex h-screen">
+              <Sidebar />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <Topbar />
+                {/* relative: absolutely positioned children (e.g. sr-only text) stay inside main's
                 scroll area instead of stretching the whole document. */}
-              <main className="relative flex-1 overflow-y-auto">{children}</main>
+                <main className="relative flex-1 overflow-y-auto">{children}</main>
+              </div>
             </div>
-          </div>
+          </TourProvider>
           <AppToaster />
         </ThemeProvider>
       </body>

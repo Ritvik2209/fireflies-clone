@@ -77,7 +77,7 @@ export function MeetingList({
   return (
     <div className="space-y-6">
       {groupByDay(meetings).map((group) => (
-        <section key={group.key} aria-label={group.heading}>
+        <section key={group.key} aria-label={group.heading} data-tour="day-group">
           <h2 className="mb-2 text-sm font-medium text-gray-500">{group.heading}</h2>
           <ul className="space-y-3">
             {group.meetings.map((meeting) => (

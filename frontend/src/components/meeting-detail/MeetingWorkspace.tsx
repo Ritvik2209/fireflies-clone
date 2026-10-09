@@ -134,6 +134,7 @@ export function MeetingWorkspace({ meeting, startAt, onChange }: MeetingWorkspac
             key={key}
             type="button"
             role="tab"
+            data-pane={key}
             aria-selected={pane === key}
             onClick={() => setPane(key)}
             className={cn(

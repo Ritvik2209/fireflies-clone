@@ -96,6 +96,7 @@ export const TranscriptPanel = memo(function TranscriptPanel({
   return (
     <section
       aria-label="Transcript"
+      data-tour="transcript"
       className={cn(
         "relative min-w-0 flex-[9] flex-col border-gray-200 lg:flex lg:border-l",
         hiddenOnNarrow ? "hidden" : "flex",
@@ -107,6 +108,7 @@ export const TranscriptPanel = memo(function TranscriptPanel({
             key={value}
             type="button"
             aria-pressed={tab === value}
+            data-tour={value === "ask" ? "ask" : undefined}
             onClick={() => setTab(value)}
             className={cn(
               "-mb-px inline-flex items-center gap-1.5 border-b-2 py-3 text-sm font-medium transition-colors",

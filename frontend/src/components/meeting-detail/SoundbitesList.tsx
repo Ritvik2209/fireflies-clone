@@ -15,7 +15,7 @@ interface SoundbitesListProps {
 /** Titled clips of the meeting. Play runs only that range, then the player pauses by itself. */
 export function SoundbitesList({ soundbites, onPlay, onNew, onDelete }: SoundbitesListProps) {
   return (
-    <section className="mt-8">
+    <section className="mt-8" data-tour="soundbites">
       <div className="flex items-center justify-between">
         <h3 className="text-[15px] font-semibold text-gray-900">
           Soundbites <span className="font-normal text-gray-400">{soundbites.length}</span>

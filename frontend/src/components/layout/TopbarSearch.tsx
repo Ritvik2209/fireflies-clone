@@ -42,7 +42,12 @@ export function TopbarSearch() {
   }
 
   return (
-    <form role="search" onSubmit={handleSubmit} className="relative w-full max-w-md">
+    <form
+      role="search"
+      data-tour="search"
+      onSubmit={handleSubmit}
+      className="relative w-full max-w-md"
+    >
       <label htmlFor="topbar-search" className="sr-only">
         {PLACEHOLDER}
       </label>

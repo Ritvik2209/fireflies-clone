@@ -14,7 +14,7 @@ export function HighlightsList({ lines, people, onSeek }: HighlightsListProps) {
   if (lines.length === 0) return null;
 
   return (
-    <section className="mt-8">
+    <section className="mt-8" data-tour="highlights">
       <h3 className="text-[15px] font-semibold text-gray-900">
         Highlights <span className="font-normal text-gray-400">{lines.length}</span>
       </h3>

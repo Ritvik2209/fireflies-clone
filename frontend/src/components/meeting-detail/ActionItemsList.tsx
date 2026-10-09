@@ -92,7 +92,7 @@ export function ActionItemsList({
   }
 
   return (
-    <section className="mt-8">
+    <section className="mt-8" data-tour="action-items">
       <div className="flex items-center justify-between">
         <h3 className="text-[15px] font-semibold text-gray-900">
           Action items <span className="font-normal text-gray-400">{items.length}</span>
