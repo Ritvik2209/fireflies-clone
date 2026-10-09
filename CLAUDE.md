@@ -214,6 +214,13 @@ frontend/src/
     - Edit and delete icons show on hover or keyboard focus.
     - The header's Add is disabled while the add form is open (the form's button says "Add item").
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
+- **Phase 9 (export) implementation choices** (details in ARCHITECTURE.md §9.3):
+  - **Backend:** one outline with three renderers (`services/export.py`).
+    - Transcript TXT lines use the `.txt` upload format, so they re-import.
+    - Dates are labelled UTC, because the server doesn't know the reader's time zone, and `zoneinfo` would need `tzdata` on Windows.
+    - PDFs use the bundled DejaVu Sans.
+    - The filename is an ASCII slug in `Content-Disposition`, which CORS exposes.
+  - **Frontend:** a download button in the player bar → `ExportDialog`. It fetches through `lib/api.ts` (`send()` is shared by JSON and file requests), saves with `lib/download.ts`, and toasts. This replaces the planned plain links, which couldn't show errors or toasts.
 - **Phase 8 (tags) implementation choices** (details in ARCHITECTURE.md §9.2):
   - **Palette:** `TagColor` (8 keys) lives in `models/tag.py`. With no colour sent, `POST /tags` picks one from the name (`crc32`).
   - **Duplicates:** a duplicate name is 409, checked first (NOCASE) and also caught as an `IntegrityError` for races.
@@ -315,7 +322,8 @@ npm run build                        # also type-checks
   - Otherwise an absolutely positioned child, such as Tailwind's `sr-only` text, escapes the area and stretches the document. On the meeting page that made the whole page scrollable (1244 px in an 805 px window).
   - For the same reason, scroll a container with `container.scrollTo(...)`: `element.scrollIntoView()` also scrolls every scrollable ancestor.
 - **New routes and `tsc`:** `PageProps<"/route">` types come from Next's generated route types. After adding a route, run `npx next typegen` (or `dev`/`build`) before `tsc --noEmit`.
-- **fpdf2's built-in fonts only cover Western single-byte characters** (Latin-1 / Windows-1252), so other text (many non-English names, emoji) breaks PDF export. Phase 9 plan: bundle a free Unicode TTF (e.g. DejaVu Sans); confirm with the owner first.
+- **fpdf2's built-in fonts only cover Latin-1.** That's why PDFs use the bundled DejaVu Sans in `backend/app/fonts/` (the owner approved it in Phase 9). Emoji still won't render, since DejaVu has no emoji glyphs.
+- **Cross-origin response headers:** JavaScript can only read headers the API exposes. `Content-Disposition` is in `expose_headers` in `main.py`; add any new header the frontend must read there too.
 - **LLM model names and SDK usage:** check current documentation at Phase 12; don't rely on memory.
 
 ## Phases
@@ -332,7 +340,7 @@ npm run build                        # also type-checks
 **Part 2: Bonuses.** Each is its own phase: small commits, its tests, seed updates if relevant, ARCHITECTURE.md data flow, re-check the core, deploy, stop for "go".
 - [x] **Phase 7: Dark mode (~45 min).** Built on 9 Oct (~01:50 IST) *before* Phases 5–6, at the owner's request, because of session limits. Phases 5 and 6 come next; the Core Gate still applies before the other bonuses.
 - [x] **Phase 8: Tags + filtering (~1.25 h)**
-- [ ] **Phase 9: Export TXT / Markdown / PDF (~1 h)**
+- [x] **Phase 9: Export TXT / Markdown / PDF (~1 h)**
 - [ ] **Phase 10: Global search, FTS5 (~1.25 h)**
 - [ ] **Phase 11: Comments, highlights, soundbites (~2.5 h)**
 - [ ] **Phase 12: "Ask about this meeting" chat (~2 h).** Before starting, ask the owner which LLM provider to use and to add the key on Render.

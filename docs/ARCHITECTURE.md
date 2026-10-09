@@ -91,6 +91,7 @@ flowchart LR
 | `services/` | Business logic. Core: `meetings` (list with filters, `get_meeting` for the detail page, `get_owned_meeting` for the bare row, `create_meeting`, `update_meeting`, `delete_meeting`, and `save_meeting`, the one write path shared with the seed script), `participants` (get-or-create by name, colour from the name), `action_items`, `summary_generator` (pure; returns `MeetingNotes`). Bonuses: `tags`, `export`, `search` (FTS5), `annotations`, `chat`. |
 | `llm/` | Bonus 6: `client.py` wraps the chosen provider's SDK behind one function; `prompts.py` builds the grounded prompt. Isolated so the provider is swappable. |
 | `parsers/` | `base.py` (`ParsedSegment`, `TranscriptParseError`, timestamp helpers), `txt_parser.py`, `vtt_parser.py`, `json_parser.py`, and `dispatcher.py` with `parse_transcript(text, format)`. |
+| `fonts/` | DejaVu Sans regular and bold, with their licence, for PDF export (bonus 3; `fpdf2`'s own fonts only cover Latin-1). |
 | `seed/` | `seed_data.json` (the default user, the people directory and six hand-written meetings; bonus phases add tags, highlights, comments and soundbites) and `seed.py` (`seed_if_empty()`). See §4.7. |
 
 ### Frontend: `frontend/src/`
@@ -105,7 +106,7 @@ flowchart LR
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
 | `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1), `AppToaster` (where toasts appear; follows the theme). The top bar's New meeting button opens `CreateMeetingModal`. |
 | `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips), `TagPicker` (bonus 2: toggle and create tags in the edit modal). |
-| `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportMenu` (3), `HighlightsList`, `CommentThread`, `SoundbitesList` (5), `AskPanel` (6). |
+| `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportDialog` (3: the download dialog, opened from the player bar), `HighlightsList`, `CommentThread`, `SoundbitesList` (5), `AskPanel` (6). |
 | `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal` (on the native `<dialog>`), `Field` (label and hint), `Input` (and styled native `Select` and `Textarea`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
 | `hooks/` | `usePlayer` (virtual clock), `useDebounce`. |
 | `lib/transcript.ts` | Pure functions: `findActiveIndex` (binary search for the line or chapter playing at a given time), `findMatches` and `groupMatchesByLine` (transcript search). They aren't hooks, because they hold no state. |
@@ -113,6 +114,7 @@ flowchart LR
 | `lib/types.ts` | TypeScript types that mirror the API's response models. |
 | `lib/format.ts` | Time and date formatting (`ms` → `12:34` or `1:02:03`, dates in the browser's local time) and avatar initials. |
 | `lib/cn.ts` | `cn()`: joins conditional class names. |
+| `lib/download.ts` | `saveFile(blob, filename)`: saves a fetched file through a temporary object URL (bonus 3). |
 | `lib/url.ts` | `replaceSearchParams()`: updates the query string with `history.replaceState` (no navigation; Next.js keeps `useSearchParams` in sync). |
 | `lib/currentUser.ts` | The default logged-in user shown in the top bar (matches the seeded user). |
 | `app/icon.svg` | Our own favicon (the Glowworm mark). |
@@ -928,13 +930,26 @@ Built only after the Core Gate passes, in this order. These are design summaries
 
 **Tests:** `tests/test_tags_api.py` covers create, list, delete, case-insensitive duplicates, validation, assigning, replacing and clearing tags, the tag filter, unknown ids, and deleting a tag that's in use.
 
-### 9.3 Export: TXT, Markdown, PDF (Phase 9)
+### 9.3 Export: TXT, Markdown, PDF (Phase 9, built)
 
-- `GET /meetings/{id}/export?content=transcript|summary&format=txt|md|pdf`. The router validates both enums (422 otherwise); `services/export.py` has one pure render function per format, returning text (TXT, Markdown) or bytes (PDF, via `fpdf2`).
-- The response sets `Content-Type` (`text/plain`, `text/markdown` or `application/pdf`) and `Content-Disposition: attachment; filename="sprint-42-planning-summary.pdf"`, built from a slug of the title.
-- `ExportMenu` items are plain links built by `api.exportUrl(id, content, format)`. No `fetch` is needed, and the browser downloads the file because of the `attachment` header.
-- A transcript export has one `[00:01:23] Speaker: text` line per segment; Markdown and PDF add a header with the title, date and participants. A summary export lists the overview, keywords, chapters with timestamps, and action items as checkboxes.
-- `fpdf2`'s built-in fonts only cover Western single-byte characters, so the plan is to bundle a free Unicode TTF font so any transcript text renders.
+**Backend:**
+- `GET /meetings/{id}/export?content=transcript|summary&format=txt|md|pdf`. Both are `Literal` query parameters, so anything else is a 422. The parameter is `fmt` in Python (`Query(alias="format")`) because `format` is a builtin.
+- `services/export.py` first builds a small **outline**: the title, the details (date in **UTC**, duration, participants, tags) and sections of items (paragraph, bullet, task, transcript line). Three renderers then write it as TXT, Markdown or PDF, so the formats always carry the same information.
+- **Transcript lines** are `[05:12] Speaker: text` (`[1:02:03]` past an hour), which is exactly the `.txt` upload format, so an exported transcript can be uploaded again (tested).
+- **Summary:** the overview, keywords, chapters with time ranges, and action items with assignee and time. In Markdown they're a task list (`- [x]`); in the PDF, ☑/☐.
+- **PDF:** `fpdf2` with **DejaVu Sans** (regular and bold) bundled in `backend/app/fonts/`, with its licence. The built-in PDF fonts only cover Latin-1; DejaVu renders accents, Cyrillic, Greek and symbols (tested with "Zoë Ångström: Привет!").
+  - The layout is A4 with 18 mm margins, wrapping `multi_cell`s and automatic page breaks.
+  - The colours match the app's grey-900 and grey-500.
+- **The response:**
+  - The content type is `text/plain; charset=utf-8`, `text/markdown; charset=utf-8` or `application/pdf`.
+  - It sends `Content-Disposition: attachment; filename="<title-slug>-<content>.<ext>"`. The slug is ASCII (lowercase, dashes); a title with no ASCII letters falls back to `meeting`.
+  - CORS **exposes** `Content-Disposition`, because cross-origin JavaScript can't read it otherwise (tested).
+
+**Frontend** (a change from the plain-link plan):
+1. A **download** button in the player bar, where Fireflies has it, opens `ExportDialog`, a "Download meeting" dialog with Transcript/Summary tabs and PDF/TXT/Markdown choices.
+2. `downloadExport()` in `lib/api.ts` fetches the file through the same `send()` as every other request, so errors become toasts rather than an error page. It reads the filename from `Content-Disposition`.
+3. `lib/download.ts` `saveFile()` saves the blob through a temporary object URL and an `<a download>`, and frees it a second later.
+4. A toast confirms ("Downloaded …").
 
 ### 9.4 Global search (Phase 10)
 
