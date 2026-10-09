@@ -72,6 +72,9 @@
     {
       "title": "Sprint 42 planning",
       "tags": ["Engineering", "Planning"],
+      "highlights": [["04:05", "yellow"], ["13:11", "pink"]],
+      "comments": [["09:15", "Check whether Phoenix customers are affected too."]],
+      "soundbites": [{"title": "Conflict rule: server wins", "start": "04:05", "end": "05:47"}],
       "date": "2026-10-06T04:30:00Z",
       "duration": "17:10",
       "participants": [
@@ -332,6 +335,9 @@
     {
       "title": "Discovery call: Coastline Facilities",
       "tags": ["Customer", "Sales"],
+      "highlights": [["03:26", "yellow"], ["05:12", "green"], ["10:01", "blue"]],
+      "comments": [["05:12", "Send Marcus the SSO setup guide."], ["11:30", "Our security questionnaire usually takes three days."]],
+      "soundbites": [{"title": "Pain points: visibility and paperwork", "start": "01:44", "end": "04:01"}, {"title": "The pricing question", "start": "10:01", "end": "11:00"}],
       "date": "2026-10-05T10:00:00Z",
       "duration": "16:33",
       "participants": [
@@ -580,6 +586,9 @@
     {
       "title": "Dispatch board redesign review",
       "tags": ["Design", "Product"],
+      "highlights": [["09:14", "green"], ["12:14", "pink"]],
+      "comments": [["06:28", "Test on low-end Android tablets too."]],
+      "soundbites": [{"title": "Accessibility review", "start": "09:14", "end": "10:43"}],
       "date": "2026-10-07T08:30:00Z",
       "duration": "15:46",
       "participants": [

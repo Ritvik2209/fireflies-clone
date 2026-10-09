@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Participant, Tag, User
+from app.models import Highlight, Meeting, Participant, SegmentComment, Soundbite, Tag, User
 from app.parsers.base import ParsedSegment, parse_timestamp
 from app.services.meetings import save_meeting
 from app.services.summary_generator import MeetingNotes, NoteActionItem, NoteChapter
@@ -49,8 +49,28 @@ def seed_if_empty(db: Session) -> bool:
             duration_ms=duration_ms,
         )
         saved.tags = [tags[name] for name in meeting["tags"]]
+        _annotations(db, user, saved, meeting)
     db.commit()
     return True
+
+
+def _annotations(db: Session, user: User, saved: Meeting, meeting: dict[str, Any]) -> None:
+    """Bonus 5 demo data. Lines are referred to by their start time ("mm:ss")."""
+    line = {segment.start_ms: segment for segment in saved.segments}
+    for start, color in meeting.get("highlights", []):
+        db.add(Highlight(segment=line[parse_timestamp(start)], user_id=user.id, color=color))
+    for start, text in meeting.get("comments", []):
+        db.add(SegmentComment(segment=line[parse_timestamp(start)], user_id=user.id, text=text))
+    for clip in meeting.get("soundbites", []):
+        db.add(
+            Soundbite(
+                meeting=saved,
+                user_id=user.id,
+                title=clip["title"],
+                start_ms=parse_timestamp(clip["start"]),
+                end_ms=parse_timestamp(clip["end"]),
+            )
+        )
 
 
 def _segments(rows: list[list[str]], duration_ms: int) -> list[ParsedSegment]:

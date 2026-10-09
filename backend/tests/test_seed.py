@@ -36,6 +36,8 @@ def test_seeded_meetings_meet_the_brief(db: Session) -> None:
         assert meeting.summary is not None and meeting.summary.generated_by == "seed"
         assert len(meeting.summary.keywords) == 6
         assert 1 <= len(meeting.tags) <= 3, meeting.title  # bonus 2
+        for clip in meeting.soundbites:  # bonus 5: every soundbite lies inside its meeting
+            assert 0 <= clip.start_ms < clip.end_ms <= meeting.duration_ms, clip.title
 
         assert segment_starts == sorted(segment_starts)
         assert all(segment.end_ms <= meeting.duration_ms for segment in meeting.segments)
