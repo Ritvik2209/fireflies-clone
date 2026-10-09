@@ -1,4 +1,4 @@
-"""Loads seed_data.json into an empty database: the default user and six hand-written meetings.
+"""Loads seed_data.json into an empty database: the default user, people, tags and six meetings.
 
 Runs at startup. Render's free disk is wiped on every restart, so the demo data comes back each
 time; a database that already has a user is left alone.
@@ -12,7 +12,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Participant, User
+from app.models import Participant, Tag, User
 from app.parsers.base import ParsedSegment, parse_timestamp
 from app.services.meetings import save_meeting
 from app.services.summary_generator import MeetingNotes, NoteActionItem, NoteChapter
@@ -31,11 +31,13 @@ def seed_if_empty(db: Session) -> bool:
     # Create the people first, so the meetings reuse them (with their email and colour).
     for name, person in data["people"].items():
         db.add(Participant(name=name, email=person["email"], avatar_color=person["color"]))
+    tags = {name: Tag(name=name, color=color) for name, color in data["tags"].items()}
+    db.add_all(tags.values())
     db.flush()
 
     for meeting in data["meetings"]:
         duration_ms = parse_timestamp(meeting["duration"])
-        save_meeting(
+        saved = save_meeting(
             db,
             owner=user,
             title=meeting["title"],
@@ -46,6 +48,7 @@ def seed_if_empty(db: Session) -> bool:
             notes=_notes(meeting),
             duration_ms=duration_ms,
         )
+        saved.tags = [tags[name] for name in meeting["tags"]]
     db.commit()
     return True
 
