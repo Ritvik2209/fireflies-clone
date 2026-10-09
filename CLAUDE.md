@@ -541,3 +541,13 @@ gh run watch <run-id> --exit-status   # non-zero exit if the run fails
 - [x] **Intro tour (the owner's request, ~1 h; Phase 13 moves to about 16:30)**
 
 - [x] **Phase 13: Final polish and ship (~1.5 h, starts no later than 16:15 IST, whatever state the extras are in).** Final deploy; complete README (setup, stack, architecture overview, schema + ER diagram, API overview, assumptions, which bonuses are done); test everything live; regenerate `INTERVIEW_PREP.md` and update `docs/ARCHITECTURE.md` from the final code (every bonus built); final commit and push; give the owner the GitHub URL and the live URL.
+  **Done on 9 Oct (~17:05 IST):**
+  - README, ARCHITECTURE.md and CLAUDE.md are final; INTERVIEW_PREP.md and INTERVIEW_HIGHLIGHTS.md are regenerated (local only).
+  - From the review: the README fixes A1–A3 and B1 (the welcome card only on the library).
+  - **Final live check** (scripted headless Edge, fresh profiles, no console errors):
+    - the library: rows, filters, sort, placeholders and navbar;
+    - the player (pinned viewport), transcript search and follow mode;
+    - creating from every format, the Failed path, edit, action items and delete;
+    - tags, annotations, export (4 files), global search and the chat (Groq);
+    - analytics, dark mode, the rail and drawer at 3 sizes, and the intro tour.
+  - This push redeploys Render with a fresh database, so the live app holds only the seeded data.
