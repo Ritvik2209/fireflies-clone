@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -117,7 +118,15 @@ export function MeetingsLibrary() {
       {!loading && count > 0 && (
         <p className="mt-5 text-sm text-gray-500">
           {count} {count === 1 ? "meeting" : "meetings"}
-          {query.trim() && ` matching “${query.trim()}”`}
+          {query.trim() && ` matching “${query.trim()}” in the title · `}
+          {query.trim() && (
+            <Link
+              href={`/search?q=${encodeURIComponent(query.trim())}`}
+              className="font-medium text-brand-600 hover:underline dark:text-brand-300"
+            >
+              Search transcripts too
+            </Link>
+          )}
         </p>
       )}
       <div className="mt-4">
@@ -126,6 +135,7 @@ export function MeetingsLibrary() {
           loading={loading}
           error={loaded?.error}
           filtered={filtered}
+          query={query.trim()}
           onRetry={() => setAttempt((current) => current + 1)}
           onClearFilters={clearFilters}
         />

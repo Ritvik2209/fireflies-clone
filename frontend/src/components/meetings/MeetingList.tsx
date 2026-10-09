@@ -1,7 +1,8 @@
-import { CircleAlert, SearchX, Video } from "lucide-react";
+import { CircleAlert, FileSearch, SearchX, Video } from "lucide-react";
+import Link from "next/link";
 
 import { MeetingRow } from "@/components/meetings/MeetingRow";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { SlowLoadingHint } from "@/components/ui/SlowLoadingHint";
@@ -13,6 +14,7 @@ interface MeetingListProps {
   loading: boolean;
   error: string | undefined;
   filtered: boolean;
+  query: string; // the title search typed in the top bar
   onRetry: () => void;
   onClearFilters: () => void;
 }
@@ -23,6 +25,7 @@ export function MeetingList({
   loading,
   error,
   filtered,
+  query,
   onRetry,
   onClearFilters,
 }: MeetingListProps) {
@@ -43,11 +46,24 @@ export function MeetingList({
       <EmptyState
         icon={SearchX}
         title="No meetings match these filters"
-        description="Try a different title, person or date range."
+        description={
+          query
+            ? `No meeting title contains “${query}”. The words may be in a transcript.`
+            : "Try a different title, person or date range."
+        }
       >
-        <Button variant="secondary" onClick={onClearFilters}>
-          Clear filters
-        </Button>
+        <div className="flex gap-3">
+          {/* The library searches titles; this opens the global search across transcripts. */}
+          {query && (
+            <Link href={`/search?q=${encodeURIComponent(query)}`} className={buttonClasses()}>
+              <FileSearch className="size-4" aria-hidden />
+              Search transcripts
+            </Link>
+          )}
+          <Button variant="secondary" onClick={onClearFilters}>
+            Clear filters
+          </Button>
+        </div>
       </EmptyState>
     ) : (
       <EmptyState
