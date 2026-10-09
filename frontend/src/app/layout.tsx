@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 
+import { AppToaster } from "@/components/layout/AppToaster";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               <main className="relative flex-1 overflow-y-auto">{children}</main>
             </div>
           </div>
+          <AppToaster />
         </ThemeProvider>
       </body>
     </html>

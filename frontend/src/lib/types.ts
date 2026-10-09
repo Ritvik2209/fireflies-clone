@@ -72,6 +72,37 @@ export interface MeetingDetail extends MeetingListItem {
   action_items: ActionItem[];
 }
 
+export type TranscriptFormat = "txt" | "vtt" | "json";
+
+/** POST /api/meetings (MeetingCreate). The backend parses the transcript and writes the notes. */
+export interface MeetingCreateInput {
+  title: string;
+  meeting_date: string; // ISO 8601 with a time zone
+  participant_names: string[];
+  transcript_text: string;
+  format: TranscriptFormat;
+  source: "upload" | "paste";
+}
+
+/** PATCH /api/meetings/{id}: only the fields sent change; participant_names replaces the list. */
+export interface MeetingUpdateInput {
+  title?: string;
+  participant_names?: string[];
+}
+
+/** POST /api/meetings/{id}/action-items */
+export interface ActionItemCreateInput {
+  text: string;
+  assignee_id: number | null;
+}
+
+/** PATCH /api/action-items/{id}: only the fields sent change; assignee_id null unassigns. */
+export interface ActionItemUpdateInput {
+  text?: string;
+  assignee_id?: number | null;
+  is_completed?: boolean;
+}
+
 export type SortOrder = "recent" | "oldest";
 
 /** Filters for GET /api/meetings. Dates are ISO strings with a time zone. */

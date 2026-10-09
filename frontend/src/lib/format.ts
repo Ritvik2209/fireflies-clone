@@ -76,3 +76,12 @@ export function startOfLocalDayIso(day: string): string {
 export function endOfLocalDayIso(day: string): string {
   return new Date(`${day}T23:59:59.999`).toISOString();
 }
+
+/** A Date as the value of an <input type="datetime-local">, in local time: "2026-10-09T14:30". */
+export function toDateTimeLocal(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
+}

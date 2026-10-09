@@ -1,6 +1,16 @@
 // The only module that talks to the backend. Components call these typed functions,
 // never fetch() directly.
-import type { MeetingDetail, MeetingListItem, MeetingQuery, Participant } from "@/lib/types";
+import type {
+  ActionItem,
+  ActionItemCreateInput,
+  ActionItemUpdateInput,
+  MeetingCreateInput,
+  MeetingDetail,
+  MeetingListItem,
+  MeetingQuery,
+  MeetingUpdateInput,
+  Participant,
+} from "@/lib/types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -26,7 +36,17 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     throw new ApiError(response.status, await errorDetail(response));
   }
+  if (response.status === 204) return undefined as T; // DELETE: no body
   return (await response.json()) as T;
+}
+
+/** A request with a JSON body (POST, PATCH). */
+function sendJson<T>(method: "POST" | "PATCH", path: string, body: unknown): Promise<T> {
+  return request<T>(path, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 /** The API always answers errors with {"detail": "..."}; fall back to the status code. */
@@ -68,4 +88,31 @@ export function getMeeting(id: number, signal?: AbortSignal): Promise<MeetingDet
 
 export function listParticipants(signal?: AbortSignal): Promise<Participant[]> {
   return request<Participant[]>("/participants", { signal });
+}
+
+export function createMeeting(input: MeetingCreateInput): Promise<MeetingDetail> {
+  return sendJson<MeetingDetail>("POST", "/meetings", input);
+}
+
+export function updateMeeting(id: number, changes: MeetingUpdateInput): Promise<MeetingDetail> {
+  return sendJson<MeetingDetail>("PATCH", `/meetings/${id}`, changes);
+}
+
+export function deleteMeeting(id: number): Promise<void> {
+  return request<void>(`/meetings/${id}`, { method: "DELETE" });
+}
+
+export function createActionItem(
+  meetingId: number,
+  input: ActionItemCreateInput,
+): Promise<ActionItem> {
+  return sendJson<ActionItem>("POST", `/meetings/${meetingId}/action-items`, input);
+}
+
+export function updateActionItem(id: number, changes: ActionItemUpdateInput): Promise<ActionItem> {
+  return sendJson<ActionItem>("PATCH", `/action-items/${id}`, changes);
+}
+
+export function deleteActionItem(id: number): Promise<void> {
+  return request<void>(`/action-items/${id}`, { method: "DELETE" });
 }

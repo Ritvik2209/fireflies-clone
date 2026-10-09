@@ -41,6 +41,10 @@
   /* Transcript timestamps and in-text links. */
   --color-link: #175cd3;
 
+  /* Destructive actions, such as the Delete button (Fireflies' coral). */
+  --color-error-400: #f97066;
+  --color-error-500: #f04438;
+
   /* Background of the transcript line that is playing. */
   --color-active-line: #eff1fe;
 
