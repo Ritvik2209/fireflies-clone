@@ -3,7 +3,7 @@
 import sqlite3
 from collections.abc import Iterator
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
@@ -38,8 +38,38 @@ def get_db() -> Iterator[Session]:
         db.close()
 
 
+# Full-text search over transcript lines (bonus 4, ARCHITECTURE.md §6.6). SQLAlchemy has no model
+# for an FTS5 virtual table, so it's plain SQL; IF NOT EXISTS makes it safe to run on every start.
+# "External content": the index points at transcript_segments rows instead of copying their text.
+_FTS_SETUP = (
+    """CREATE VIRTUAL TABLE IF NOT EXISTS segments_fts USING fts5(
+        text, content='transcript_segments', content_rowid='id', tokenize='porter unicode61'
+    )""",
+    # Triggers keep the index in step with every insert, update and delete (cascades included),
+    # inside the same transaction. 'delete' tells FTS5 which old text to un-index.
+    """CREATE TRIGGER IF NOT EXISTS transcript_segments_ai AFTER INSERT ON transcript_segments
+    BEGIN
+        INSERT INTO segments_fts (rowid, text) VALUES (new.id, new.text);
+    END""",
+    """CREATE TRIGGER IF NOT EXISTS transcript_segments_ad AFTER DELETE ON transcript_segments
+    BEGIN
+        INSERT INTO segments_fts (segments_fts, rowid, text) VALUES ('delete', old.id, old.text);
+    END""",
+    """CREATE TRIGGER IF NOT EXISTS transcript_segments_au AFTER UPDATE ON transcript_segments
+    BEGIN
+        INSERT INTO segments_fts (segments_fts, rowid, text) VALUES ('delete', old.id, old.text);
+        INSERT INTO segments_fts (rowid, text) VALUES (new.id, new.text);
+    END""",
+    # Index lines that existed before the index did. Rebuilding is safe to repeat.
+    "INSERT INTO segments_fts (segments_fts) VALUES ('rebuild')",
+)
+
+
 def init_db() -> None:
     """Create any missing tables. It never alters existing ones (production would use Alembic)."""
     import app.models  # noqa: F401  (imports every model so Base.metadata has all tables)
 
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as connection:  # one transaction, committed at the end
+        for statement in _FTS_SETUP:
+            connection.execute(text(statement))
