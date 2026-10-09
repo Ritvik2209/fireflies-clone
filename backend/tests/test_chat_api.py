@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from helpers import create_meeting
 from httpx import Response
 from openai import omit
 
@@ -19,9 +20,9 @@ TRANSCRIPT = """[00:00] Priya Shah: Morning all. Let's review the sprint goals f
 
 
 def _meeting(client: TestClient) -> dict[str, Any]:
-    response = client.post(
-        "/api/meetings",
-        json={
+    return create_meeting(
+        client,
+        {
             "title": "Sprint planning",
             "meeting_date": "2026-10-06T04:30:00Z",
             "transcript_text": TRANSCRIPT,
@@ -29,8 +30,6 @@ def _meeting(client: TestClient) -> dict[str, Any]:
             "source": "paste",
         },
     )
-    assert response.status_code == 201, response.text
-    return response.json()
 
 
 def _ask(client: TestClient, meeting_id: int, question: str) -> Response:

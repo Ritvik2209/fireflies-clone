@@ -4,6 +4,7 @@ import json
 from typing import Any
 
 from fastapi.testclient import TestClient
+from helpers import create_meeting
 
 # Ann: two back-to-back lines (one 20 s turn), then a zero-length "Really?" and a 15 s line,
 # which together make a second, 15 s turn. Ben: one 40 s line. Cy: one zero-length line.
@@ -23,9 +24,9 @@ LINES = [
 
 
 def _create(client: TestClient, lines: list[dict[str, Any]], participants: list[str]) -> int:
-    response = client.post(
-        "/api/meetings",
-        json={
+    return create_meeting(
+        client,
+        {
             "title": "Analytics test",
             "meeting_date": "2026-10-09T09:00:00Z",
             "participants": participants,
@@ -33,9 +34,7 @@ def _create(client: TestClient, lines: list[dict[str, Any]], participants: list[
             "format": "json",
             "source": "paste",
         },
-    )
-    assert response.status_code == 201, response.text
-    return response.json()["id"]
+    )["id"]
 
 
 def test_talk_time_words_questions_and_monologues(client: TestClient) -> None:

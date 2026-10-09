@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, BackgroundTasks, Query
 
 from app.dependencies import CurrentUser, DbSession
 from app.models import Meeting
@@ -15,6 +15,7 @@ from app.schemas.meeting import (
     MeetingUpdate,
 )
 from app.services import meetings as service
+from app.services import processing
 
 router = APIRouter(prefix="/meetings", tags=["meetings"], responses=ERROR_RESPONSES)
 
@@ -26,9 +27,19 @@ def list_meetings(
     return service.list_meetings(db, user, filters)
 
 
-@router.post("", response_model=MeetingDetail, status_code=201)
-def create_meeting(data: MeetingCreate, db: DbSession, user: CurrentUser) -> Meeting:
-    return service.create_meeting(db, user, data)
+@router.post(
+    "",
+    response_model=MeetingListItem,
+    status_code=202,
+    responses={202: {"description": "Saved as processing; poll GET /meetings/{id}"}},
+)
+def create_meeting(
+    data: MeetingCreate, background_tasks: BackgroundTasks, db: DbSession, user: CurrentUser
+) -> Meeting:
+    """Saves the meeting as "processing"; its transcript is parsed after the response."""
+    meeting = processing.start_meeting(db, user, data)
+    background_tasks.add_task(processing.process_meeting, meeting.id, data)
+    return meeting
 
 
 @router.get("/{meeting_id}", response_model=MeetingDetail)
@@ -39,7 +50,12 @@ def get_meeting(meeting_id: int, db: DbSession, user: CurrentUser) -> Meeting:
 @router.patch(
     "/{meeting_id}",
     response_model=MeetingDetail,
-    responses={409: {"description": "A participant who speaks in the transcript was removed"}},
+    responses={
+        409: {
+            "description": "A participant who speaks in the transcript was removed, "
+            "or the transcript isn't processed"
+        }
+    },
 )
 def update_meeting(
     meeting_id: int, data: MeetingUpdate, db: DbSession, user: CurrentUser

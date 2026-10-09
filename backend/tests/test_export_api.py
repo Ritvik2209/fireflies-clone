@@ -3,6 +3,7 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
+from helpers import create_meeting
 from httpx import Response
 
 TRANSCRIPT = """[00:00] Priya Shah: Morning all. Let's review the sprint goals for the mobile app.
@@ -11,9 +12,9 @@ TRANSCRIPT = """[00:00] Priya Shah: Morning all. Let's review the sprint goals f
 
 
 def _meeting(client: TestClient) -> dict[str, Any]:
-    response = client.post(
-        "/api/meetings",
-        json={
+    return create_meeting(
+        client,
+        {
             "title": "Sprint planning: Q4!",
             "meeting_date": "2026-10-06T04:30:00Z",
             "transcript_text": TRANSCRIPT,
@@ -21,8 +22,6 @@ def _meeting(client: TestClient) -> dict[str, Any]:
             "source": "paste",
         },
     )
-    assert response.status_code == 201, response.text
-    return response.json()
 
 
 def _export(client: TestClient, meeting_id: int, content: str, fmt: str) -> Response:
@@ -45,9 +44,9 @@ def test_transcript_txt_downloads_and_imports_back(client: TestClient) -> None:
 
     # The transcript lines use the .txt upload format, so the export can be uploaded again.
     lines = "\n".join(line for line in text.splitlines() if line.startswith("["))
-    again = client.post(
-        "/api/meetings",
-        json={
+    again = create_meeting(
+        client,
+        {
             "title": "Re-imported",
             "meeting_date": "2026-10-07T04:30:00Z",
             "transcript_text": lines,
@@ -55,8 +54,7 @@ def test_transcript_txt_downloads_and_imports_back(client: TestClient) -> None:
             "source": "upload",
         },
     )
-    assert again.status_code == 201
-    assert [s["text"] for s in again.json()["segments"]] == [s["text"] for s in meeting["segments"]]
+    assert [s["text"] for s in again["segments"]] == [s["text"] for s in meeting["segments"]]
 
 
 def test_summary_markdown_has_every_section(client: TestClient) -> None:

@@ -3,6 +3,7 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
+from helpers import create_meeting
 
 from app.models.tag import TAG_COLORS
 
@@ -10,9 +11,9 @@ TRANSCRIPT = "[00:00] Priya Shah: Let's review the launch.\n[00:30] Sam Rivera: 
 
 
 def _meeting(client: TestClient, title: str) -> dict[str, Any]:
-    response = client.post(
-        "/api/meetings",
-        json={
+    return create_meeting(
+        client,
+        {
             "title": title,
             "meeting_date": "2026-10-06T04:30:00Z",
             "transcript_text": TRANSCRIPT,
@@ -20,8 +21,6 @@ def _meeting(client: TestClient, title: str) -> dict[str, Any]:
             "source": "paste",
         },
     )
-    assert response.status_code == 201, response.text
-    return response.json()
 
 
 def _tag(client: TestClient, name: str, color: str | None = None) -> dict[str, Any]:

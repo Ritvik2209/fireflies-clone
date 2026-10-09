@@ -3,6 +3,7 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
+from helpers import create_meeting
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -17,9 +18,9 @@ RETRO = """[00:00] Dev Patel: Pricing was priced too high last year.
 
 
 def _meeting(client: TestClient, title: str, transcript: str) -> dict[str, Any]:
-    response = client.post(
-        "/api/meetings",
-        json={
+    return create_meeting(
+        client,
+        {
             "title": title,
             "meeting_date": "2026-10-06T04:30:00Z",
             "transcript_text": transcript,
@@ -27,8 +28,6 @@ def _meeting(client: TestClient, title: str, transcript: str) -> dict[str, Any]:
             "source": "paste",
         },
     )
-    assert response.status_code == 201, response.text
-    return response.json()
 
 
 def _search(client: TestClient, query: str) -> list[dict[str, Any]]:

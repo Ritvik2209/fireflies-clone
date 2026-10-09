@@ -35,6 +35,14 @@ class MeetingCreate(BaseModel):
     format: TranscriptFormat
     source: Literal["upload", "paste"]
 
+    @field_validator("transcript_text")
+    @classmethod
+    def not_blank(cls, value: str) -> str:
+        # Checked before the 202, so an empty upload is rejected at once, not in the job.
+        if not value.strip():
+            raise ValueError("the transcript is empty")
+        return value
+
 
 class MeetingUpdate(BaseModel):
     """PATCH body: only the fields sent change. participant_names and tag_ids replace the list."""

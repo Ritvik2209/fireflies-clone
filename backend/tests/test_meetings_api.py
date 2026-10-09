@@ -1,6 +1,7 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
+from helpers import create_meeting
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -20,9 +21,7 @@ def _create(client: TestClient, **overrides: Any) -> dict[str, Any]:
         "format": "txt",
         "source": "paste",
     } | overrides
-    response = client.post("/api/meetings", json=body)
-    assert response.status_code == 201, response.text
-    return response.json()
+    return create_meeting(client, body)
 
 
 def _names(meeting: dict[str, Any]) -> list[str]:
@@ -46,21 +45,17 @@ def test_create_parses_the_transcript_and_generates_notes(client: TestClient) ->
     assert ("I'll finish the offline sync work by Friday.", daniel, 40_000) in commitments
 
 
-def test_create_rejects_an_unparseable_transcript_and_stores_nothing(client: TestClient) -> None:
-    response = client.post(
-        "/api/meetings",
-        json={
-            "title": "Notes",
-            "meeting_date": "2026-10-06T04:30:00Z",
-            "transcript_text": "just some notes",
-            "format": "txt",
-            "source": "paste",
-        },
-    )
+def test_an_unparseable_transcript_fails_in_the_background_and_stores_nothing(
+    client: TestClient, db: Session
+) -> None:
+    response = client.post("/api/meetings", json=_body_with(transcript_text="just some notes"))
 
-    assert response.status_code == 422
-    assert response.json()["detail"].startswith("Line 1: expected")
-    assert client.get("/api/meetings").json() == []
+    assert response.status_code == 202  # parsing happens after the response (Extra 3)
+    meeting = client.get(f"/api/meetings/{response.json()['id']}").json()
+    assert meeting["status"] == "failed"
+    assert meeting["error_message"].startswith("Line 1: expected")
+    assert (meeting["segments"], meeting["summary"], meeting["participants"]) == ([], None, [])
+    assert db.scalar(select(func.count()).select_from(TranscriptSegment)) == 0
 
 
 def test_create_validates_the_body(client: TestClient) -> None:

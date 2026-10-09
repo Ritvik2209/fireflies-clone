@@ -1,4 +1,4 @@
-"""Meeting use cases: list with filters, detail, the create pipeline, update and delete."""
+"""Meeting use cases: list with filters, detail, saving a transcript, update and delete."""
 
 from collections.abc import Iterable, Sequence
 from datetime import datetime
@@ -18,10 +18,10 @@ from app.models import (
     User,
 )
 from app.models.types import utc_now
-from app.parsers import ParsedSegment, parse_transcript
-from app.schemas.meeting import MeetingCreate, MeetingFilters, MeetingUpdate
+from app.parsers import ParsedSegment
+from app.schemas.meeting import MeetingFilters, MeetingUpdate
 from app.services.participants import get_or_create_participant, normalize_name
-from app.services.summary_generator import MeetingNotes, generate_notes
+from app.services.summary_generator import MeetingNotes
 from app.services.tags import get_tags
 
 # Everything the meeting page shows: one extra query per collection, however long the
@@ -90,24 +90,6 @@ def get_meeting(db: Session, owner: User, meeting_id: int) -> Meeting:
     return meeting
 
 
-def create_meeting(db: Session, owner: User, data: MeetingCreate) -> Meeting:
-    """Parse the transcript, generate notes and store it all in one transaction."""
-    segments = parse_transcript(data.transcript_text, data.format)
-    meeting = save_meeting(
-        db,
-        owner=owner,
-        title=data.title,
-        meeting_date=data.meeting_date,
-        source=data.source,
-        segments=segments,
-        participant_names=data.participant_names,
-        notes=generate_notes(segments),
-    )
-    meeting_id = meeting.id
-    db.commit()  # all or nothing: no half-created meetings
-    return get_meeting(db, owner, meeting_id)
-
-
 def save_meeting(
     db: Session,
     *,
@@ -120,13 +102,45 @@ def save_meeting(
     notes: MeetingNotes,
     duration_ms: int | None = None,
 ) -> Meeting:
-    """Add a meeting with its transcript and notes to the current transaction (no commit).
+    """Add a new, ready meeting with its transcript and notes to the transaction (no commit).
 
-    Shared by the create endpoint and the seed script, so both follow the same rules: segments
-    are ordered by start time, and every speaker, named participant and assignee is matched to
-    the directory by name and becomes a participant of the meeting.
+    Used by the seed script. Uploads create the bare meeting first and fill it in the
+    background (services/processing.py); both use fill_meeting, so they follow the same rules.
+    """
+    meeting = Meeting(owner=owner, title=title, meeting_date=meeting_date, source=source)
+    db.add(meeting)
+    fill_meeting(
+        db,
+        meeting,
+        segments=segments,
+        participant_names=participant_names,
+        notes=notes,
+        duration_ms=duration_ms,
+    )
+    return meeting
+
+
+def fill_meeting(
+    db: Session,
+    meeting: Meeting,
+    *,
+    segments: Sequence[ParsedSegment],
+    participant_names: Iterable[str],
+    notes: MeetingNotes,
+    duration_ms: int | None = None,
+) -> None:
+    """Add a transcript and its notes to a meeting, in the current transaction (no commit).
+
+    Segments are ordered by start time, and every speaker, named participant and assignee is
+    matched to the directory by name and becomes a participant of the meeting.
     """
     ordered = sorted(segments, key=lambda segment: segment.start_ms)  # stable: ties keep order
+    # Set before any query: a query autoflushes a new meeting, and duration_ms is NOT NULL.
+    meeting.duration_ms = (
+        duration_ms
+        if duration_ms is not None
+        else max((segment.end_ms for segment in ordered), default=0)
+    )
     assignees = [item.assignee for item in notes.action_items if item.assignee]
     people = _resolve_people(
         db, [*(segment.speaker for segment in ordered), *participant_names, *assignees]
@@ -135,16 +149,11 @@ def save_meeting(
     def person(name: str) -> Participant:
         return people[normalize_name(name).lower()]
 
-    meeting = Meeting(
-        owner=owner,
-        title=title,
-        meeting_date=meeting_date,
-        source=source,
-        duration_ms=duration_ms
-        if duration_ms is not None
-        else max((segment.end_ms for segment in ordered), default=0),
-        participants=list(people.values()),
-        segments=[
+    # Assigning a collection of an existing meeting loads the old (empty) one with a query;
+    # that query must not autoflush these new rows while they're half-built.
+    with db.no_autoflush:
+        meeting.participants = list(people.values())
+        meeting.segments = [
             TranscriptSegment(
                 position=position,
                 speaker=person(segment.speaker),
@@ -153,15 +162,15 @@ def save_meeting(
                 text=segment.text,
             )
             for position, segment in enumerate(ordered)
-        ],
-        summary=Summary(
+        ]
+        meeting.summary = Summary(
             overview=notes.overview, keywords=notes.keywords, generated_by=notes.generated_by
-        ),
-        chapters=[
+        )
+        meeting.chapters = [
             Chapter(position=position, title=chapter.title, start_ms=chapter.start_ms)
             for position, chapter in enumerate(notes.chapters)
-        ],
-        action_items=[
+        ]
+        meeting.action_items = [
             ActionItem(
                 text=item.text,
                 assignee=person(item.assignee) if item.assignee else None,
@@ -169,15 +178,14 @@ def save_meeting(
                 source_start_ms=item.start_ms,
             )
             for item in notes.action_items
-        ],
-    )
-    db.add(meeting)
+        ]
     db.flush()  # assigns ids, still inside the transaction
-    return meeting
 
 
 def update_meeting(db: Session, owner: User, meeting_id: int, data: MeetingUpdate) -> Meeting:
     meeting = get_meeting(db, owner, meeting_id)
+    if meeting.status != "ready":  # Extra 3: not while processing, nor after it failed
+        raise ConflictError("Only a meeting whose transcript has been processed can be edited")
     if data.title is not None:
         meeting.title = data.title
     if data.participant_names is not None:

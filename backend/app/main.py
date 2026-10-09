@@ -23,6 +23,7 @@ from app.routers import (
     tags,
 )
 from app.seed.seed import seed_if_empty
+from app.services.processing import fail_interrupted
 
 
 @asynccontextmanager
@@ -31,6 +32,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     init_db()
     with SessionLocal() as db:
         seed_if_empty(db)
+        fail_interrupted(db)  # Extra 3: jobs that were running died with the old process
     yield
 
 

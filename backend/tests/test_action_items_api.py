@@ -1,15 +1,16 @@
 from typing import Any
 
 from fastapi.testclient import TestClient
+from helpers import create_meeting
 
 TRANSCRIPT = """[00:00] Priya Shah: Let's plan the release.
 [00:30] Daniel Okafor: Sounds good."""
 
 
 def _meeting(client: TestClient, participants: list[str] | None = None) -> dict[str, Any]:
-    response = client.post(
-        "/api/meetings",
-        json={
+    return create_meeting(
+        client,
+        {
             "title": "Release planning",
             "meeting_date": "2026-10-06T04:30:00Z",
             "participant_names": participants or ["Sam Rivera"],
@@ -18,8 +19,6 @@ def _meeting(client: TestClient, participants: list[str] | None = None) -> dict[
             "source": "paste",
         },
     )
-    assert response.status_code == 201, response.text
-    return response.json()
 
 
 def _person(meeting: dict[str, Any], name: str) -> int:
