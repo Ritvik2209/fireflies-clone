@@ -307,8 +307,11 @@ frontend/src/
   - **No library:** about 300 lines of our own code.
 - **Responsive layout** (details in ARCHITECTURE.md §5.4):
   - **Below `lg` (1024 px):**
-    - the sidebar becomes a drawer (`MobileNav`), opened from the top bar's menu button; Escape, the backdrop or a link closes it;
     - the meeting page shows **Notes** or **Transcript**, with tabs to switch; a time clicked in the notes switches to the transcript.
+  - **Sidebar (the owner's request, after the tour):**
+    - from `md` (768 px), a 64 px icon rail like Fireflies, so pages keep their width;
+    - its menu button opens the full sidebar (logo and labels) as `NavDrawer`, over a dimmed page; Escape, the backdrop or a chosen link closes it;
+    - phones have no rail: the top bar's menu button opens the same drawer.
   - **Smaller screens:**
     - the section title shows from `md`;
     - below `sm`, the top bar hides the Settings icon and the New meeting label;

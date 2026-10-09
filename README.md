@@ -42,9 +42,9 @@ Design notes, the database schema with an ER diagram, the full API reference and
 
 **Intro tour:** an optional two-minute walkthrough. It's offered on a first visit, and the compass button in the top bar restarts it. Each step dims the page except one feature and says what it does; at one step you open a seeded meeting yourself.
 
-**Works on phones and tablets:** below 1024 px the sidebar becomes a menu, and the meeting page switches between Notes and Transcript with tabs. No page scrolls sideways, even at phone width.
+**Works on phones and tablets:** the sidebar is a slim icon rail that opens on click (on phones, from a menu button), and below 1024 px the meeting page switches between Notes and Transcript with tabs. No page scrolls sideways, even at phone width.
 
-**Fireflies-style shell:** sidebar navigation, a top bar with search, New meeting, settings and profile, and "Coming soon" pages for Record, Integrations, Team and Settings.
+**Fireflies-style shell:** a slim icon rail that opens into the full sidebar, a top bar with search, New meeting, settings and profile, and "Coming soon" pages for Record, Integrations, Team and Settings.
 
 **Bonus features (all six built):**
 - **Dark mode:** a top-bar toggle that follows the system setting until you pick a theme, and remembers your choice.
