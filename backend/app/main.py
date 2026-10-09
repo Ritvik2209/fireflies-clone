@@ -12,6 +12,7 @@ from app.database import SessionLocal, init_db
 from app.errors import register_exception_handlers
 from app.routers import (
     action_items,
+    analytics,
     annotations,
     chat,
     export,
@@ -57,6 +58,7 @@ for router in (
     search.router,
     annotations.router,
     chat.router,
+    analytics.router,
 ):
     app.include_router(router, prefix="/api")
 
