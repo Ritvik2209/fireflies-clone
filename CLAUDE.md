@@ -23,7 +23,7 @@ Full design, schema, API and data flows: [docs/ARCHITECTURE.md](docs/ARCHITECTUR
 ## Git and GitHub (Claude does all of it)
 
 - Public repo: https://github.com/Ritvik2209/fireflies-clone. Work on `main` only; commit straight to it.
-- **Live:** frontend https://glowworm-plum.vercel.app (Vercel project `glowworm`, root `frontend/`) · backend https://glowworm-api.onrender.com (Render Blueprint service `glowworm-api`). **Both redeploy automatically on every push to `main`**; Render also re-applies `render.yaml`, so change Render settings there, not in the dashboard.
+- **Live:** frontend https://glowworm-plum.vercel.app (Vercel project `glowworm`, root `frontend/`) · backend https://glowworm-api.onrender.com (Render Blueprint service `glowworm-api`). **Vercel redeploys on every push to `main`. Render redeploys only when a push changes files under `backend/`** (its root directory), so docs-only pushes don't restart it. Render re-applies `render.yaml` when that file changes, so change Render settings there, not in the dashboard.
 - The commit identity (the owner's name and email) is set in this repo's local git config. Never change it; never pass `--author`.
 - **Commit small and often:** one commit per small working piece (typically every 15–45 minutes of work), never a whole phase in one commit.
 - **Every commit leaves the project working:** run the relevant lint and tests first. Never commit secrets, `.env` files or `*.db` files.
@@ -550,4 +550,4 @@ gh run watch <run-id> --exit-status   # non-zero exit if the run fails
     - creating from every format, the Failed path, edit, action items and delete;
     - tags, annotations, export (4 files), global search and the chat (Groq);
     - analytics, dark mode, the rail and drawer at 3 sizes, and the intro tour.
-  - This push redeploys Render with a fresh database, so the live app holds only the seeded data.
+  - **Cleanup:** the run's test data (4 meetings, a tag) was then removed through the API, because docs-only pushes don't redeploy Render. The live app holds only the seeded data.

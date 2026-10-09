@@ -255,7 +255,7 @@ The live app is also checked with scripted headless-browser tests, at desktop, t
    - `CORS_ORIGINS` set to the Vercel address, and the AI provider and model.
 2. **AI key (optional):** in the service's **Environment** settings, set `LLM_API_KEY` to a Groq key. The Blueprint declares it without a value, so it's never in the repository.
 3. **Frontend (Vercel):** import the repository with root directory `frontend/`, and set `NEXT_PUBLIC_API_URL` to the Render URL, for example `https://glowworm-api.onrender.com`.
-4. **Updates:** both redeploy automatically on every push to `main`. CI runs alongside the deploys; it doesn't block them.
+4. **Updates:** Vercel redeploys on every push to `main`. Render redeploys when a push changes `backend/` (its root directory), and re-applies `render.yaml` when that changes. CI runs alongside the deploys; it doesn't block them.
 
 ## Assumptions and trade-offs
 

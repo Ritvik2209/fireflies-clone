@@ -1289,7 +1289,7 @@ The full step-by-step flow is §8.6. This section covers the design choices.
 | URL | https://glowworm-plum.vercel.app | https://glowworm-api.onrender.com (docs at `/docs`) |
 | Root directory | `frontend/` | `backend/` |
 | Configured by | Vercel project imported from GitHub (Root Directory `frontend`) | `render.yaml` (Blueprint): free plan, Singapore region, Python 3.12.7 |
-| Deploys | Automatically on every push to `main` | Automatically on every push to `main` (Render also re-applies `render.yaml`) |
+| Deploys | Automatically on every push to `main` | Automatically on pushes to `main` that change `backend/` (the root directory); docs-only pushes don't restart it. Render re-applies `render.yaml` when it changes. |
 | Build | `npm run build` (Vercel default) | `pip install -r requirements.txt` |
 | Start | Vercel default | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
 | Environment | `NEXT_PUBLIC_API_URL` | In `render.yaml`: `CORS_ORIGINS`, the Python version, `LLM_PROVIDER` and `LLM_MODEL`. Dashboard only: `LLM_API_KEY` (bonus 6). |
