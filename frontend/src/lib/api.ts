@@ -10,6 +10,7 @@ import type {
   MeetingQuery,
   MeetingUpdateInput,
   Participant,
+  Tag,
 } from "@/lib/types";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -75,6 +76,7 @@ export function listMeetings(
   const params = new URLSearchParams();
   if (query.q) params.set("q", query.q);
   if (query.participantId) params.set("participant_id", query.participantId);
+  if (query.tagId) params.set("tag_id", query.tagId);
   if (query.dateFrom) params.set("date_from", query.dateFrom);
   if (query.dateTo) params.set("date_to", query.dateTo);
   if (query.sort) params.set("sort", query.sort);
@@ -115,4 +117,13 @@ export function updateActionItem(id: number, changes: ActionItemUpdateInput): Pr
 
 export function deleteActionItem(id: number): Promise<void> {
   return request<void>(`/action-items/${id}`, { method: "DELETE" });
+}
+
+export function listTags(signal?: AbortSignal): Promise<Tag[]> {
+  return request<Tag[]>("/tags", { signal });
+}
+
+/** The API picks the colour from the name. A name that already exists (ignoring case) is 409. */
+export function createTag(name: string): Promise<Tag> {
+  return sendJson<Tag>("POST", "/tags", { name });
 }

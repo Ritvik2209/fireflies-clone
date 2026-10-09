@@ -7,6 +7,7 @@ import { DeleteMeetingDialog } from "@/components/meetings/DeleteMeetingDialog";
 import { EditMeetingModal } from "@/components/meetings/EditMeetingModal";
 import { AvatarStack } from "@/components/ui/AvatarStack";
 import { Button } from "@/components/ui/Button";
+import { TagChip } from "@/components/ui/TagChip";
 import { formatDuration, formatLongDate, formatTimeOfDay } from "@/lib/format";
 import type { MeetingDetail } from "@/lib/types";
 
@@ -46,6 +47,13 @@ export function MeetingHeader({ meeting, onUpdated }: MeetingHeaderProps) {
           {people}
         </span>
       </div>
+      {meeting.tags.length > 0 && (
+        <div aria-label="Tags" className="mt-3 flex flex-wrap gap-1.5">
+          {meeting.tags.map((tag) => (
+            <TagChip key={tag.id} name={tag.name} color={tag.color} />
+          ))}
+        </div>
+      )}
 
       {dialog === "edit" && (
         <EditMeetingModal

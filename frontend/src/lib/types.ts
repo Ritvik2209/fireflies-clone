@@ -13,6 +13,16 @@ export interface Participant {
 
 export type MeetingSource = "seed" | "upload" | "paste";
 
+/** Palette keys for tag chips (backend/app/models/tag.py). */
+export type TagColor = "gray" | "blue" | "green" | "yellow" | "orange" | "red" | "pink" | "purple";
+
+/** backend/app/schemas/tag.py (bonus 2) */
+export interface Tag {
+  id: number;
+  name: string;
+  color: TagColor;
+}
+
 /** One row of GET /api/meetings (backend/app/schemas/meeting.py: MeetingListItem) */
 export interface MeetingListItem {
   id: number;
@@ -21,6 +31,7 @@ export interface MeetingListItem {
   duration_ms: number;
   source: MeetingSource;
   participants: Participant[];
+  tags: Tag[]; // sorted by name
 }
 
 /** One transcript line (backend/app/schemas/transcript.py). The speaker is a meeting participant. */
@@ -88,6 +99,7 @@ export interface MeetingCreateInput {
 export interface MeetingUpdateInput {
   title?: string;
   participant_names?: string[];
+  tag_ids?: number[]; // replaces the meeting's tags
 }
 
 /** POST /api/meetings/{id}/action-items */
@@ -109,6 +121,7 @@ export type SortOrder = "recent" | "oldest";
 export interface MeetingQuery {
   q?: string;
   participantId?: string;
+  tagId?: string;
   dateFrom?: string;
   dateTo?: string;
   sort?: SortOrder;

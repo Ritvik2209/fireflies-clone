@@ -1,10 +1,11 @@
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/Input";
-import type { Participant, SortOrder } from "@/lib/types";
+import type { Participant, SortOrder, Tag } from "@/lib/types";
 
 /** The library's filters (the title search lives in the top bar). Dates are local "YYYY-MM-DD". */
 export interface LibraryFilters {
   participantId: string;
+  tagId: string;
   from: string;
   to: string;
   sort: SortOrder;
@@ -12,6 +13,7 @@ export interface LibraryFilters {
 
 interface MeetingFiltersProps {
   participants: Participant[];
+  tags: Tag[];
   filters: LibraryFilters;
   onChange: (changes: Partial<LibraryFilters>) => void;
   canClear: boolean;
@@ -20,6 +22,7 @@ interface MeetingFiltersProps {
 
 export function MeetingFilters({
   participants,
+  tags,
   filters,
   onChange,
   canClear,
@@ -37,6 +40,20 @@ export function MeetingFilters({
         {participants.map((participant) => (
           <option key={participant.id} value={participant.id}>
             {participant.name}
+          </option>
+        ))}
+      </Select>
+
+      <Select
+        aria-label="Filter by tag"
+        className="w-40"
+        value={filters.tagId}
+        onChange={(event) => onChange({ tagId: event.target.value })}
+      >
+        <option value="">All tags</option>
+        {tags.map((tag) => (
+          <option key={tag.id} value={tag.id}>
+            {tag.name}
           </option>
         ))}
       </Select>

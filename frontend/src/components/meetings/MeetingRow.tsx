@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Avatar } from "@/components/ui/Avatar";
 import { AvatarStack } from "@/components/ui/AvatarStack";
+import { TagChip } from "@/components/ui/TagChip";
 import { CURRENT_USER } from "@/lib/currentUser";
 import { formatDuration, formatShortDate, formatTimeOfDay } from "@/lib/format";
 import type { MeetingListItem } from "@/lib/types";
@@ -24,10 +25,15 @@ export function MeetingRow({ meeting }: { meeting: MeetingListItem }) {
             className="size-4 shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5"
           />
         </p>
-        <p className="mt-1 text-sm text-gray-500">
-          {formatShortDate(meeting.meeting_date)} · {formatTimeOfDay(meeting.meeting_date)} ·{" "}
-          {formatDuration(meeting.duration_ms)}
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="text-sm text-gray-500">
+            {formatShortDate(meeting.meeting_date)} · {formatTimeOfDay(meeting.meeting_date)} ·{" "}
+            {formatDuration(meeting.duration_ms)}
+          </p>
+          {meeting.tags.map((tag) => (
+            <TagChip key={tag.id} name={tag.name} color={tag.color} />
+          ))}
+        </div>
       </div>
       <AvatarStack people={meeting.participants} />
     </Link>
