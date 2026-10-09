@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from app.config import settings
 from app.database import SessionLocal, init_db
 from app.errors import register_exception_handlers
-from app.routers import action_items, health, meetings, participants, tags
+from app.routers import action_items, export, health, meetings, participants, tags
 from app.seed.seed import seed_if_empty
 
 
@@ -31,6 +31,8 @@ app.add_middleware(
     allow_origins=list(settings.cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
+    # Lets the browser read the export's filename (only a few headers are visible by default).
+    expose_headers=["Content-Disposition"],
 )
 
 register_exception_handlers(app)
@@ -41,6 +43,7 @@ for router in (
     action_items.router,
     participants.router,
     tags.router,
+    export.router,
 ):
     app.include_router(router, prefix="/api")
 
