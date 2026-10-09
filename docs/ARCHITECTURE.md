@@ -1,19 +1,18 @@
 # Architecture
 
-> **Status: updated during the extras (9 Oct).** Every core feature, all six bonuses (§9), CI (§10.1), speaker analytics (§9.7) and background processing for uploads (§8.6, §9.8), the responsive layout (§5.4) and the intro tour (§5.5) are built and deployed. The core:
-> - the backend core (database, parsers, summary generator, services, API, seed data, tests);
-> - the meetings library;
-> - the meeting page (player, transcript sync and search, notes);
-> - creating, editing and deleting meetings and action items, with toasts (§8.6–8.8);
-> - dark mode (§9.1, built before Phase 5 at the owner's request).
+> **Status: final (9 Oct 2026, Phase 13).** Everything described here is built, deployed and verified on the live app:
+> - **Core:** the meetings library; the meeting page with the simulated player, transcript sync and search; the notes; create, edit and delete.
+> - **All six bonuses (§9):** dark mode, tags, export, global search, annotations, and the AI chat on Groq.
+> - **The three extras:** CI (§10.1), speaker analytics (§9.7), and background processing for uploads (§8.6, §9.8).
+> - **The owner's last requests:** the responsive layout with the icon-rail sidebar (§5.4), and the intro tour (§5.5).
 >
-> Names below match the code. The Core Gate was verified on the live app in Phase 6 (9 Oct). The six bonus features are summarised in §9, and each bonus phase adds its step-by-step data flow when it is built. Phase 13 regenerates this document from the final code. If the code and this document disagree, the code wins and this document gets fixed.
+> The Core Gate was first verified on the live app in Phase 6, and re-checked after every phase with scripted headless-browser runs. Names below match the code; if the code and this document ever disagree, the code wins.
 
 **Contents:** [1. Overview](#1-system-overview) · [2. Stack](#2-tech-stack) · [3. Repository layout](#3-repository-layout) · [4. Backend](#4-backend) · [5. Frontend](#5-frontend) · [6. Database](#6-database) · [7. API](#7-api) · [8. Core data flows](#8-core-data-flows) · [9. Bonus features](#9-bonus-features) · [10. Deployment](#10-deployment) · [11. Assumptions and trade-offs](#11-assumptions-and-trade-offs)
 
 ## 1. System overview
 
-Glowworm recreates the core of Fireflies.ai for meetings that have already happened: a library of meetings, a transcript that stays in sync with a media player, AI-style notes (overview, keywords, chapters, action items), and full create / edit / delete, all persisted in SQLite. Six bonus features build on that core: dark mode, tags, export (TXT / Markdown / PDF), global transcript search, comments / highlights / soundbites, and an "Ask about this meeting" chat backed by an LLM. Real recording, speech-to-text, integrations and authentication are out of scope and appear as placeholders.
+Glowworm recreates the core of Fireflies.ai for meetings that have already happened: a library of meetings, a transcript that stays in sync with a media player, AI-style notes (overview, keywords, chapters, action items), and full create / edit / delete, all persisted in SQLite. Six bonus features build on that core: dark mode, tags, export (TXT / Markdown / PDF), global transcript search, comments / highlights / soundbites, and an "Ask about this meeting" chat backed by an LLM. Three extras follow: CI on GitHub Actions, speaker analytics, and background processing for uploads. Then come a responsive layout (an icon-rail sidebar, and tabs on narrow meeting pages) and an optional intro tour. Real recording, speech-to-text, integrations and authentication are out of scope and appear as placeholders.
 
 ```mermaid
 flowchart LR
@@ -49,7 +48,7 @@ flowchart LR
 | Database | SQLite + FTS5 | Zero-ops single file. FTS5 is built into SQLite and gives ranked full-text search without another service. |
 | PDF export (bonus 3) | `fpdf2` | Pure Python with no system libraries, so it installs on Render as-is. |
 | LLM (bonus 6) | Groq, through the official `openai` SDK (Groq's API is OpenAI-compatible; the owner chose it in Phase 12) | Called only from `backend/app/llm/client.py`, so switching providers touches one module; `LLM_PROVIDER=openai` already works. |
-| Quality | pytest + httpx (`TestClient`), ruff; ESLint + Prettier | Tests for the parsers, the summary generator and key endpoints; one linter/formatter per language. |
+| Quality | pytest + httpx (`TestClient`), ruff; ESLint + Prettier; GitHub Actions | 91 tests: the parsers, the summary generator, the models and every API area. One linter/formatter per language, and CI on every push (§10.1). |
 
 ## 3. Repository layout
 
@@ -58,6 +57,7 @@ flowchart LR
 ├── CLAUDE.md              condensed brief and working rules for coding sessions
 ├── README.md              setup, deploy steps, stack, schema, API, assumptions (Phases 6 and 13)
 ├── render.yaml            Render Blueprint for the backend (Phase 1)
+├── .github/workflows/ci.yml  CI: backend and frontend checks on every push and pull request (§10.1)
 ├── docs/
 │   ├── ARCHITECTURE.md    this document
 │   └── reference/         Fireflies screenshots used as the UI reference (local only, git-ignored)
@@ -80,11 +80,11 @@ flowchart LR
 
 | Path | Responsibility |
 |---|---|
-| `main.py` | Creates the FastAPI app: CORS middleware, routers mounted under `/api`, exception handlers, and a `lifespan` hook that creates the tables (and, from bonus 4, the FTS5 index) and seeds an empty database. |
+| `main.py` | Creates the FastAPI app: CORS middleware, routers mounted under `/api`, exception handlers, and a `lifespan` hook that creates the tables and the FTS5 index, seeds an empty database, and marks meetings left `processing` by a restart as failed (Extra 3). |
 | `config.py` | Reads settings from environment variables (`DATABASE_URL`, `CORS_ORIGINS`, and the `LLM_*` variables in bonus 6) into a small frozen dataclass, with local defaults. |
 | `database.py` | SQLAlchemy engine, `SessionLocal`, the declarative `Base`, the `get_db()` dependency, the `PRAGMA foreign_keys=ON` listener, and (bonus 4) the FTS5 setup SQL. |
 | `dependencies.py` | `get_current_user()`: returns the default user. The single place where real authentication would plug in. |
-| `errors.py` | Domain exceptions (`NotFoundError` 404, `ConflictError` 409, `InvalidInputError` 422; `RateLimitError` 429 arrives with bonus 6) and the handlers that turn them, and request-validation errors, into JSON error responses. |
+| `errors.py` | Domain exceptions (`NotFoundError` 404, `ConflictError` 409, `InvalidInputError` 422, `TooManyRequestsError` 429 for the chat) and the handlers that turn them, and request-validation errors, into JSON error responses. |
 | `models/` | One module per table group. Core: `user.py`, `meeting.py`, `participant.py`, `associations.py` (many-to-many link tables), `transcript.py`, `summary.py` (summary + chapters), `action_item.py`. Bonuses: `tag.py`, `annotations.py` (highlights, comments, soundbites), `chat.py`. `types.py` holds `UTCDateTime` (§6.7). Allowed values live next to their table as `Literal` types (`AvatarColor`, `GeneratedBy`) and generate the CHECK constraints. `__init__.py` imports every model so `Base.metadata` knows all tables before `create_all()` runs. |
 | `schemas/` | Pydantic request/response models per resource: `MeetingCreate`, `MeetingUpdate`, `MeetingFilters` (the list's query parameters), `MeetingListItem`, `MeetingDetail`, `ActionItemCreate/Update/Out`, `ParticipantOut`, … `base.py` has `ORMModel` (`from_attributes=True`), `ErrorResponse` and the error responses shown in `/docs`. |
 | `routers/` | One router per resource. Core: `health`, `meetings`, `action_items`, `participants`. Bonuses: `tags`, `export`, `search`, `annotations`, `chat`. Extras: `analytics`. HTTP concerns only; the shared `DbSession` and `CurrentUser` dependency types come from `dependencies.py`. |
@@ -98,16 +98,16 @@ flowchart LR
 
 | Path | Responsibility |
 |---|---|
-| `app/layout.tsx` | Root layout: fonts, toaster, theme provider (bonus 1), and the app shell (`Sidebar` + `Topbar`) around every page. |
+| `app/layout.tsx` | Root layout: fonts, the toaster, the theme provider (bonus 1), the tour provider (§5.5), and the app shell (`Sidebar`, the icon rail, plus `Topbar`) around every page. |
 | `app/page.tsx` | Redirects `/` to `/meetings`. |
 | `app/meetings/page.tsx` | Library: filters and the meeting list. |
 | `app/meetings/[id]/page.tsx` | Meeting page: notes, transcript and player. |
 | `app/search/page.tsx` | Global search results (bonus 4): `components/search/SearchResults` inside `<Suspense>`. |
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
 | `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1), `AppToaster` (where toasts appear; follows the theme). The top bar's New meeting button opens `CreateMeetingModal`. `Sidebar`: the 64 px icon rail (md and up). `NavDrawer`: the full sidebar (logo and labelled links) as a drawer, opened from the rail or, on phones, from the top bar. |
-| `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips), `TagPicker` (bonus 2: toggle and create tags in the edit modal). Extra 3: `MeetingRow` shows a Processing badge or a Failed row (reason and Delete); `ProcessingWatcher` (mounted in the top bar) follows a just-created meeting and toasts when it's ready. |
+| `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, tag, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips), `TagPicker` (bonus 2: toggle and create tags in the edit modal). Extra 3: `MeetingRow` shows a Processing badge or a Failed row (reason and Delete); `ProcessingWatcher` (mounted in the top bar) follows a just-created meeting and toasts when it's ready. |
 | `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportDialog` (3: the download dialog, opened from the player bar), `HighlightsList`, `CommentThread` (inline under a line), `SoundbitesList`, `SoundbiteDialog` (5), `AskPanel` (6). Extras: `SpeakerTalkTime` (2: the talk-time bars), `UnprocessedMeeting` (3: the Processing or Failed view instead of an empty transcript). |
-| `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal` (on the native `<dialog>`), `Field` (label and hint), `Input` (and styled native `Select` and `Textarea`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
+| `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal` (on the native `<dialog>`), `Field` (label and hint), `Input` (and styled native `Select` and `Textarea`), `Avatar` (exports `AVATAR_BG`, also used by the talk-time bars), `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
 | `components/tour/` | The optional intro tour (§5.5): `steps.ts` (the steps, as data), `TourProvider` (state, page changes, first-visit card), `TourOverlay` (the spotlight and card) and `TourWelcome`. |
 | `hooks/` | `usePlayer` (virtual clock; `playRange` for soundbites), `useDebounce`, `useAnnotationActions` (bonus 5: stable save-and-update handlers), `useMeetingStatus` (Extra 3: polls a processing meeting until it's ready or failed). |
 | `lib/transcript.ts` | Pure functions: `findActiveIndex` (binary search for the line or chapter playing at a given time), `findMatches` and `groupMatchesByLine` (transcript search). They aren't hooks, because they hold no state. |
@@ -161,7 +161,8 @@ Each piece can be read, tested and changed on its own. Services are called by ro
 |---|---|---|---|
 | `DATABASE_URL` | backend | `sqlite:///./app.db` | same; Render's disk is ephemeral (§10) |
 | `CORS_ORIGINS` | backend, comma-separated | `http://localhost:3000,http://localhost:3001` | `https://glowworm-plum.vercel.app` (set in `render.yaml`) |
-| `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY` | backend, bonus 6 | unset (chat uses the fallback) | set in Render's dashboard only |
+| `LLM_PROVIDER`, `LLM_MODEL` | backend, bonus 6 | `groq`, `openai/gpt-oss-120b` | set in `render.yaml` |
+| `LLM_API_KEY` | backend, bonus 6 | unset (the chat uses the search fallback) | Render's dashboard only, never the repo |
 | `NEXT_PUBLIC_API_URL` | frontend, inlined at build time | `http://localhost:8000` | the Render URL |
 
 ### 4.4 Startup
@@ -170,7 +171,8 @@ FastAPI's `lifespan` hook in `main.py` runs once per process start:
 
 1. `Base.metadata.create_all(engine)` creates any missing tables: the core tables, plus each bonus's tables once its models exist. It never alters existing tables.
 2. From bonus 4: raw SQL creates the `segments_fts` virtual table and its three triggers (`IF NOT EXISTS`, so it is safe on every start), then runs FTS5's `rebuild` command so rows that existed before the index are included.
-3. If the `users` table is empty, `seed_if_empty()` loads `seed/seed_data.json`: the default user and six meetings with hand-written notes (`generated_by = "seed"`).
+3. If the `users` table is empty, `seed_if_empty()` loads `seed/seed_data.json`: the default user and six meetings with hand-written notes (`generated_by = "seed"`), plus their tags, highlights, comments and soundbites.
+4. Extra 3: `fail_interrupted()` marks any meeting still `processing` as `failed`, because its background job died with the previous process.
 
 When a phase adds tables or seed data, a local database must be deleted (`backend/app.db`) to pick them up; on Render every deploy starts from a fresh disk anyway.
 
@@ -186,9 +188,10 @@ Every error response has the same shape, so the frontend can always show `detail
 |---|---|---|
 | FastAPI request validation | `RequestValidationError` (the handler adds an `errors` list with field details) | 422 |
 | Services | `NotFoundError` | 404 |
-| Services | `ConflictError`: duplicate tag name, or removing a participant who speaks in the transcript | 409 |
-| Parsers, services | `TranscriptParseError` / `InvalidInputError`, e.g. "Line 4: expected `[HH:MM:SS] Speaker: text`" | 422 |
-| Chat service (bonus 6) | `RateLimitError`: too many questions per minute | 429 |
+| Services | `ConflictError`: duplicate tag name, removing a participant who speaks in the transcript, or editing a meeting that isn't ready (Extra 3) | 409 |
+| Services | `InvalidInputError`, e.g. an unknown tag id or an assignee who isn't a participant | 422 |
+| Parsers, in the background job (Extra 3) | `TranscriptParseError`, e.g. "Line 4: expected `[HH:MM:SS] Speaker: text`". Not an HTTP error: the meeting becomes `failed` with this as its `error_message`. | none |
+| Chat service (bonus 6) | `TooManyRequestsError`: too many questions about one meeting in a minute | 429 |
 
 FastAPI's default validation error puts a list in `detail`. Our handler keeps `detail` a readable string (the first problem, ready for a toast) and lists every field under `errors`, with Pydantic's "Value error, " prefix removed:
 
@@ -215,11 +218,17 @@ FastAPI's default validation error puts a list in `detail`. Our handler keeps `d
 
 `seed/seed_data.json` holds the default user (Alex Morgan), a people directory (name, email, avatar colour) and six original meetings at a fictional field-service software company, Kestrel: sprint planning, a sales discovery call, a design review, a 1:1, an investor update and a customer escalation. Each meeting has a duration, its participants, transcript rows `[speaker, "mm:ss", text]` (each line lasts until the next starts), and hand-written notes with chapters and action items whose `at` times point at the line where they were said.
 
-The dialogue was written by hand, and the start times were computed from each line's word count at a measured pace (95–100 words per minute plus a pause between turns), so every meeting lands within the brief's 15–45 minutes (15.8–17.2). `seed_if_empty()` runs at startup, only when there are no users, and stores every meeting through `save_meeting`, the same code path as an upload. Tests check the brief's seed rules and that every chapter and action item lands on the start of a transcript line.
+The dialogue was written by hand, and the start times were computed from each line's word count at a measured pace (95–100 words per minute plus a pause between turns), so every meeting lands within the brief's 15–45 minutes (15.8–17.2). `seed_if_empty()` runs at startup, only when there are no users, and stores every meeting through `save_meeting` → `fill_meeting`, the same write path the upload's background job uses. Tests check the brief's seed rules and that every chapter and action item lands on the start of a transcript line.
 
 ### 4.8 Testing
 
-pytest, 57 tests: parsers, the summary generator, models (the database really enforces CASCADE, RESTRICT and NOCASE), every API route, the seed rules, and the sample files in `backend/samples/`. `tests/conftest.py` points `DATABASE_URL` at a temporary SQLite file *before* the app is imported, so tests run the real code paths and never touch `app.db`. Each test gets freshly created tables. The `TestClient` isn't used as a context manager, so the startup hook (create tables, seed) doesn't run; tests seed explicitly when they need data.
+pytest, 91 tests:
+- the parsers, the summary generator and the sample files in `backend/samples/`;
+- the models: the database really enforces CASCADE, RESTRICT, NOCASE and the status CHECKs;
+- every API area: meetings, action items, tags, export, global search, annotations, the chat (with a fake LLM), analytics and background processing;
+- the seed rules.
+
+`tests/helpers.create_meeting()` posts a meeting (202) and returns it as `GET` shows it once processed. `tests/conftest.py` points `DATABASE_URL` at a temporary SQLite file *before* the app is imported, so tests run the real code paths and never touch `app.db`. Each test gets freshly created tables. The `TestClient` isn't used as a context manager, so the startup hook (create tables, seed) doesn't run; tests seed explicitly when they need data.
 
 ## 5. Frontend
 
@@ -233,11 +242,15 @@ pytest, 57 tests: parsers, the summary generator, models (the database really en
 | `/search` | Global search results | `?q=` (bonus 4). |
 | `/record`, `/integrations`, `/team`, `/settings` | Placeholders | Fireflies-styled "Coming soon" pages. |
 
-The root layout renders the shell once: `Sidebar` (navigation) and `Topbar` (search, "Upload / New meeting", profile and settings placeholders, and the theme toggle from bonus 1). Pages render only their own content.
+The root layout renders the shell once:
+- `Sidebar`: the icon rail, which opens into the full sidebar;
+- `Topbar`: search, New meeting, the theme toggle, the tour button, and the profile and settings placeholders;
+- `TourProvider`.
+
+Pages render only their own content.
 
 **The top-bar search is the library's title search**, like Fireflies' "Search by title" box:
 - On `/meetings`, every keystroke writes `?q=` with `replaceSearchParams`. The library reads `q` from the URL and fetches once typing pauses.
-- On any other page, Enter opens `/meetings?q=…`.
 - While focused, the box shows what you're typing; otherwise it shows the URL's `q`. That keeps it in sync with "Clear filters", reloads and shared links, without the race you'd get from copying the URL back into an input while someone types.
 - Because it reads the URL (`useSearchParams`), it renders inside a `<Suspense>` boundary, with a static placeholder in the prerendered HTML.
 - Since global search (bonus 4), Enter opens `/search?q=…`: on other pages, and also on the library, where the search page shows title matches too. On `/search`, typing updates the results live.
@@ -245,7 +258,7 @@ The root layout renders the shell once: `Sidebar` (navigation) and `Topbar` (sea
 ### 5.2 Data fetching
 
 - `lib/api.ts` is the only module that calls `fetch`. It exposes typed functions (`listMeetings(filters)`, `getMeeting(id)`, `createMeeting(body)`, `updateActionItem(id, patch)`, …), returns the types from `lib/types.ts`, and throws an `ApiError` with the server's `detail` message on non-2xx responses.
-- Pages render a client component that fetches in `useEffect`: a `Skeleton` while loading, an `EmptyState` for empty results, and an error message with "Try again" (toasts arrive in Phase 5). Pages that read the URL (`useSearchParams`) wrap that component in `<Suspense>`, whose fallback is the skeleton in the prerendered HTML.
+- Pages render a client component that fetches in `useEffect`: a `Skeleton` while loading, an `EmptyState` for empty results, and an error message with "Try again". Pages that read the URL (`useSearchParams`) wrap that component in `<Suspense>`, whose fallback is the skeleton in the prerendered HTML.
 - **Loading without extra state:** each result is stored together with the key of the request it answers (`JSON.stringify([query, filters, attempt])`). The page is loading whenever the latest result's key isn't the current key, so no `setLoading(true)` is needed before each request. "Try again" bumps `attempt`, which changes the key and refetches.
 - **Cold starts:** if loading takes more than 4 seconds, a note explains that the free server is waking up (it can take up to a minute).
 - **Why fetch in the browser rather than in server components:** the meeting page is interactive anyway (player, sync, search); Render's free tier can take up to about a minute to wake up, and a skeleton is better than a server render that hangs; reads and writes share one code path.
@@ -340,7 +353,7 @@ flowchart LR
   - mounted in the root layout, so a tour survives page changes;
   - holds the step index, and `start`, `next`, `back` and `stop`;
   - sends the user to the step's page when they aren't on it (Back from the meeting, or starting elsewhere);
-  - shows the welcome card while the tour hasn't been seen in this browser. "Seen" is in `localStorage`, read with `useSyncExternalStore`: the server render assumes "seen", so there's no hydration mismatch.
+  - shows the welcome card on the library page (so it never covers a meeting opened from a shared link) while the tour hasn't been seen in this browser. "Seen" is in `localStorage`, read with `useSyncExternalStore`: the server render assumes "seen", so there's no hydration mismatch.
 - **`TourOverlay.tsx`:** one step on screen.
   - **Finding the feature:** it finds the first visible element matching the step's selector (and `targetText`, for the meeting row), scrolls it into view once, and re-measures it every 150 ms, because pages load and move.
   - **The spotlight:** four fixed `bg-black/60` panels surround the feature. They separate it from the rest of the page and catch clicks elsewhere. A brand-coloured ring sits over the feature and blocks it as well, except on the click step, where clicks pass through to the row.
@@ -1279,10 +1292,10 @@ The full step-by-step flow is §8.6. This section covers the design choices.
 | Deploys | Automatically on every push to `main` | Automatically on every push to `main` (Render also re-applies `render.yaml`) |
 | Build | `npm run build` (Vercel default) | `pip install -r requirements.txt` |
 | Start | Vercel default | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
-| Environment | `NEXT_PUBLIC_API_URL` | `DATABASE_URL`, `CORS_ORIGINS`, Python version pin; `LLM_PROVIDER`, `LLM_MODEL`, `LLM_API_KEY` (bonus 6, dashboard only) |
+| Environment | `NEXT_PUBLIC_API_URL` | In `render.yaml`: `CORS_ORIGINS`, the Python version, `LLM_PROVIDER` and `LLM_MODEL`. Dashboard only: `LLM_API_KEY` (bonus 6). |
 | Health check | none | `GET /api/health` |
 
-- A bare health-check version is deployed in Phase 1, before any features, to catch configuration problems early. The README gets exact, numbered deploy steps.
+- A bare health-check version was deployed in Phase 1, before any features, to catch configuration problems early. The README has exact, numbered deploy steps.
 - **Render free tier:** the instance sleeps after 15 minutes without traffic (the next request can take up to about a minute) and its disk is ephemeral. Every start therefore re-creates the tables and re-seeds the demo meetings, and meetings created during a demo are lost on restart. A persistent disk or a managed Postgres database would fix this.
 - `NEXT_PUBLIC_API_URL` is inlined into the JavaScript bundle at build time, so changing it requires a redeploy.
 - `--host 0.0.0.0` makes uvicorn reachable from outside its container; Render assigns `$PORT`.
@@ -1325,3 +1338,8 @@ flowchart LR
 - Uploads are capped at 1,000,000 characters of text (about 1 MB), and a meeting at 50 named participants.
 - Seed transcripts are hand-written; their timestamps are computed from word counts at a measured pace (95–100 words per minute plus pauses), so the simulated player moves at a believable rhythm and each meeting runs 15–17 minutes.
 - Chat (bonus 6): retrieval is keyword-based, so it can miss paraphrases; the rate limit is per meeting and stored in our own table; answers can still be wrong, which is why every claim carries a clickable timestamp.
+- Background processing (Extra 3) runs inside the web process: a restart loses the job (startup marks the meeting failed), and it can't scale across machines. Production would use a job queue (Celery, RQ or Arq with Redis), with retries and pushed status updates.
+- The rule-based notes favour recall over precision: a sentence like "We'll film it in the basement" can become an action item.
+- CI doesn't gate deploys: Vercel and Render build every push while the checks run (§10.1).
+- The intro tour's "seen" flag and the theme are per browser (`localStorage`); there are no user preferences on the server.
+- The transcript line's toolbar (highlight, comment, soundbite) is designed for hover and keyboard focus; touch screens would want an explicit menu.

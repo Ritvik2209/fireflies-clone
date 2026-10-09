@@ -191,8 +191,8 @@ backend/pyproject.toml                            ruff + pytest config
 frontend/src/
   app/             routes: /meetings, /meetings/[id], /search, /settings, /integrations, /team, /record
   components/      layout/, meetings/, meeting-detail/, tour/, ui/ (see ARCHITECTURE.md §3)
-  hooks/           usePlayer, useDebounce (+ useMeetingStatus, Extra 3)
-  lib/             api.ts (typed fetch client), types.ts, format.ts, url.ts, transcript.ts (pure helpers)
+  hooks/           usePlayer, useDebounce, useAnnotationActions (bonus 5), useMeetingStatus (Extra 3)
+  lib/             api.ts (typed fetch client), types.ts, format.ts, url.ts, transcript.ts (pure helpers), events.ts (Extra 3), download.ts (bonus 3)
 ```
 
 - Routers never contain business logic. Services never raise `HTTPException`; they raise domain errors from `errors.py`.
@@ -230,7 +230,7 @@ frontend/src/
   - Tests set `DATABASE_URL` to a temp file in `conftest.py` before importing the app, and don't run the lifespan.
 - **Phase 3 implementation choices** (details in ARCHITECTURE.md §5.1, §5.2 and §8.1):
   - **Search box:** the top-bar search is the library's title search, like Fireflies' "Search by title".
-    - On `/meetings` it writes `?q=` on every keystroke; on other pages, Enter opens `/meetings?q=…`.
+    - On `/meetings` it writes `?q=` on every keystroke; on other pages, Enter opens `/meetings?q=…` (since Phase 10, Enter opens `/search?q=…` instead).
     - It shows the typed draft while focused and the URL's `q` otherwise.
   - **Query string:**
     - It is updated with `window.history.replaceState` (`lib/url.ts`), not `router.replace`. Next.js keeps `useSearchParams` in sync without a navigation or a server round trip.
@@ -295,7 +295,7 @@ frontend/src/
     - `TourProvider`: state, page changes and the first-visit card, mounted in the root layout;
     - `TourOverlay`: the spotlight and the card;
     - `TourWelcome`.
-  - **Starting it:** the top bar's compass button (`useTour().start`), or the non-blocking welcome card on a first visit. "Seen" is kept in `localStorage` and read with `useSyncExternalStore`, so the server render and the browser agree.
+  - **Starting it:** the top bar's compass button (`useTour().start`), or the non-blocking welcome card on a first visit to the library (not on other pages, so it never covers a meeting opened from a link). "Seen" is kept in `localStorage` and read with `useSyncExternalStore`, so the server render and the browser agree.
   - **Finding features:** each toured feature has a `data-tour` attribute. The overlay finds the first visible match (and `targetText`, for the Discovery call row), scrolls it into view once, and re-measures it every 150 ms. A feature still missing after 6 s is skipped.
   - **Spotlight:** four `bg-black/60` panels around the feature dim the page and block clicks elsewhere. A ring sits over the feature and blocks it too, except on the click step.
   - **Card placement:** below the feature, else above, else beside it, else at the bottom. It assumes 280 px of card height.
@@ -540,4 +540,4 @@ gh run watch <run-id> --exit-status   # non-zero exit if the run fails
 - [x] **Responsive layout (the owner's request, ~45 min)**
 - [x] **Intro tour (the owner's request, ~1 h; Phase 13 moves to about 16:30)**
 
-- [ ] **Phase 13: Final polish and ship (~1.5 h, starts no later than 16:15 IST, whatever state the extras are in).** Final deploy; complete README (setup, stack, architecture overview, schema + ER diagram, API overview, assumptions, which bonuses are done); test everything live; regenerate `INTERVIEW_PREP.md` and update `docs/ARCHITECTURE.md` from the final code (every bonus built); final commit and push; give the owner the GitHub URL and the live URL.
+- [x] **Phase 13: Final polish and ship (~1.5 h, starts no later than 16:15 IST, whatever state the extras are in).** Final deploy; complete README (setup, stack, architecture overview, schema + ER diagram, API overview, assumptions, which bonuses are done); test everything live; regenerate `INTERVIEW_PREP.md` and update `docs/ARCHITECTURE.md` from the final code (every bonus built); final commit and push; give the owner the GitHub URL and the live URL.
