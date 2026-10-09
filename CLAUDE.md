@@ -93,7 +93,7 @@ Three optional features, built in this order. Everything else in this brief stay
    - **Badge:** a CI status badge goes at the top of the README.
    - **Every push:** confirm the run is green with `gh run list` / `gh run watch`.
 2. **Speaker analytics** (~1 h), like Fireflies' "Speaker talk time".
-   - **Endpoint:** `GET /api/meetings/{id}/analytics` (404 if missing). `services/analytics_service.py` computes it on every read; it's never stored.
+   - **Endpoint:** `GET /api/meetings/{id}/analytics` (404 if missing). `services/analytics.py` computes it on every read; it's never stored. (The owner agreed to drop the `_service` suffix, matching the other services.)
    - **Per speaker:**
      - `talk_time_ms` (the sum of `end_ms − start_ms`), `talk_percent`;
      - `segment_count`, `word_count`, `words_per_minute`;
@@ -116,7 +116,7 @@ Three optional features, built in this order. Everything else in this brief stay
      - an index on `status` only if a query filters on it.
    - **Create:** `POST /meetings` validates synchronously, with a 422 for missing fields, an unknown format or an empty transcript. It saves the meeting as `processing` and returns **202 Accepted**.
    - **Background job:**
-     - a `BackgroundTasks` job in `services/processing_service.py` opens its own session;
+     - a `BackgroundTasks` job in `services/processing.py` opens its own session;
      - in one transaction it parses, saves participants, segments and notes, and sets `ready`;
      - or it saves nothing and sets `failed` with a readable `error_message`. Parse errors fail the meeting, never the server.
    - **Frontend:**
@@ -172,7 +172,7 @@ backend/app/
   routers/         HTTP only: validate → call a service → return
   services/        business logic: meetings, participants, action_items, summary_generator
                    (+ tags, export, search, annotations, chat in their bonus phases;
-                   analytics_service, processing_service in the extras)
+                   analytics, processing in the extras)
   llm/             LLM client wrapper + prompt building (bonus 6), isolated so the provider is swappable
   parsers/         txt / vtt / json parsers + dispatcher → list[ParsedSegment]
   seed/            seed_data.json + seed.py
@@ -281,6 +281,16 @@ frontend/src/
     - Edit and delete icons show on hover or keyboard focus.
     - The header's Add is disabled while the add form is open (the form's button says "Add item").
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
+- **Extra 2 (speaker analytics) implementation choices** (details in ARCHITECTURE.md §9.7):
+  - **Backend files:** `routers/analytics.py`; `schemas/analytics.py` (`MeetingAnalytics`, `SpeakerAnalytics`); `services/analytics.py`, which returns frozen dataclasses (`MeetingStats`, `SpeakerStats`) that the response model reads.
+  - **Where it's computed:** one `GROUP BY speaker_id` query (talk time, lines, questions, joined to the participant's name and colour); words and turns in a Python loop over the ordered lines.
+  - **Definitions:**
+    - shares are rounded to one decimal;
+    - words per minute is 0 when talk time is 0;
+    - a turn runs from its first line's start to its last line's end;
+    - a tie for dominant speaker goes to the alphabetically first name;
+    - participants who never speak aren't listed.
+  - **Frontend:** `SpeakerTalkTime` in the notes panel, after Action items. `Avatar` exports `AVATAR_BG`, so each bar matches its avatar. The bar width is an inline style.
 - **Extra 1 (CI) implementation choices** (details in ARCHITECTURE.md §10.1):
   - **Workflow:** `.github/workflows/ci.yml` runs two parallel jobs on every push and pull request to `main`. A newer push cancels the older run.
   - **Versions:** Python 3.12.7, as on Render. Node comes from `"engines": {"node": "22.x"}` in `frontend/package.json`, which Vercel also honours; the lockfile root has the same entry.
@@ -461,7 +471,7 @@ gh run watch <run-id> --exit-status   # non-zero exit if the run fails
 
 **Part 3: Extras** (scope addition; details under Locked scope). Phase 13 starts no later than 16:15 IST, whatever state they are in; an unfinished extra is reverted.
 - [x] **Extra 1: CI with GitHub Actions (~30 min)**
-- [ ] **Extra 2: Speaker analytics (~1 h)**
+- [x] **Extra 2: Speaker analytics (~1 h)**
 - [ ] **Extra 3: Background processing for uploads (~1.5 h)**
 
 - [ ] **Phase 13: Final polish and ship (~1.5 h, starts no later than 16:15 IST, whatever state the extras are in).** Final deploy; complete README (setup, stack, architecture overview, schema + ER diagram, API overview, assumptions, which bonuses are done); test everything live; regenerate `INTERVIEW_PREP.md` and update `docs/ARCHITECTURE.md` from the final code (every bonus built); final commit and push; give the owner the GitHub URL and the live URL.

@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status: updated during the extras (9 Oct).** Every core feature, all six bonuses (§9) and CI (§10.1) are built and deployed. The core:
+> **Status: updated during the extras (9 Oct).** Every core feature, all six bonuses (§9), CI (§10.1) and speaker analytics (§9.7) are built and deployed. The core:
 > - the backend core (database, parsers, summary generator, services, API, seed data, tests);
 > - the meetings library;
 > - the meeting page (player, transcript sync and search, notes);
@@ -87,8 +87,8 @@ flowchart LR
 | `errors.py` | Domain exceptions (`NotFoundError` 404, `ConflictError` 409, `InvalidInputError` 422; `RateLimitError` 429 arrives with bonus 6) and the handlers that turn them, and request-validation errors, into JSON error responses. |
 | `models/` | One module per table group. Core: `user.py`, `meeting.py`, `participant.py`, `associations.py` (many-to-many link tables), `transcript.py`, `summary.py` (summary + chapters), `action_item.py`. Bonuses: `tag.py`, `annotations.py` (highlights, comments, soundbites), `chat.py`. `types.py` holds `UTCDateTime` (§6.7). Allowed values live next to their table as `Literal` types (`AvatarColor`, `GeneratedBy`) and generate the CHECK constraints. `__init__.py` imports every model so `Base.metadata` knows all tables before `create_all()` runs. |
 | `schemas/` | Pydantic request/response models per resource: `MeetingCreate`, `MeetingUpdate`, `MeetingFilters` (the list's query parameters), `MeetingListItem`, `MeetingDetail`, `ActionItemCreate/Update/Out`, `ParticipantOut`, … `base.py` has `ORMModel` (`from_attributes=True`), `ErrorResponse` and the error responses shown in `/docs`. |
-| `routers/` | One router per resource. Core: `health`, `meetings`, `action_items`, `participants`. Bonuses: `tags`, `export`, `search`, `annotations`, `chat`. HTTP concerns only; the shared `DbSession` and `CurrentUser` dependency types come from `dependencies.py`. |
-| `services/` | Business logic. Core: `meetings` (list with filters, `get_meeting` for the detail page, `get_owned_meeting` for the bare row, `create_meeting`, `update_meeting`, `delete_meeting`, and `save_meeting`, the one write path shared with the seed script), `participants` (get-or-create by name, colour from the name), `action_items`, `summary_generator` (pure; returns `MeetingNotes`). Bonuses: `tags`, `export`, `search` (FTS5), `annotations`, `chat`. |
+| `routers/` | One router per resource. Core: `health`, `meetings`, `action_items`, `participants`. Bonuses: `tags`, `export`, `search`, `annotations`, `chat`. Extras: `analytics`. HTTP concerns only; the shared `DbSession` and `CurrentUser` dependency types come from `dependencies.py`. |
+| `services/` | Business logic. Core: `meetings` (list with filters, `get_meeting` for the detail page, `get_owned_meeting` for the bare row, `create_meeting`, `update_meeting`, `delete_meeting`, and `save_meeting`, the one write path shared with the seed script), `participants` (get-or-create by name, colour from the name), `action_items`, `summary_generator` (pure; returns `MeetingNotes`). Bonuses: `tags`, `export`, `search` (FTS5), `annotations`, `chat`. Extras: `analytics` (speaker talk time, computed on read). |
 | `llm/` | Bonus 6: `client.py` wraps the chosen provider's SDK behind one function; `prompts.py` builds the grounded prompt. Isolated so the provider is swappable. |
 | `parsers/` | `base.py` (`ParsedSegment`, `TranscriptParseError`, timestamp helpers), `txt_parser.py`, `vtt_parser.py`, `json_parser.py`, and `dispatcher.py` with `parse_transcript(text, format)`. |
 | `fonts/` | DejaVu Sans regular and bold, with their licence, for PDF export (bonus 3; `fpdf2`'s own fonts only cover Latin-1). |
@@ -106,7 +106,7 @@ flowchart LR
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
 | `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1), `AppToaster` (where toasts appear; follows the theme). The top bar's New meeting button opens `CreateMeetingModal`. |
 | `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips), `TagPicker` (bonus 2: toggle and create tags in the edit modal). |
-| `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportDialog` (3: the download dialog, opened from the player bar), `HighlightsList`, `CommentThread` (inline under a line), `SoundbitesList`, `SoundbiteDialog` (5), `AskPanel` (6). |
+| `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportDialog` (3: the download dialog, opened from the player bar), `HighlightsList`, `CommentThread` (inline under a line), `SoundbitesList`, `SoundbiteDialog` (5), `AskPanel` (6). Extras: `SpeakerTalkTime` (2: the talk-time bars). |
 | `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal` (on the native `<dialog>`), `Field` (label and hint), `Input` (and styled native `Select` and `Textarea`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
 | `hooks/` | `usePlayer` (virtual clock; `playRange` for soundbites), `useDebounce`, `useAnnotationActions` (bonus 5: stable save-and-update handlers). |
 | `lib/transcript.ts` | Pure functions: `findActiveIndex` (binary search for the line or chapter playing at a given time), `findMatches` and `groupMatchesByLine` (transcript search). They aren't hooks, because they hold no state. |
@@ -676,6 +676,12 @@ Base path `/api`. JSON in and out, except export, which returns a file. Every ro
 | 6 | POST | `/meetings/{id}/chat` | `{question}` | 201 `ChatMessage` (the answer) | 404, 422, 429 |
 | 6 | DELETE | `/meetings/{id}/chat` | none | 204 | 404 |
 
+**Extras**
+
+| Extra | Method | Path | Request | Success | Errors |
+|---|---|---|---|---|---|
+| 2 | GET | `/meetings/{id}/analytics` | none | 200 `MeetingAnalytics`: per speaker, talk time and share, lines, words, words per minute, questions and longest monologue; plus the total talk time, speaker count and dominant speaker | 404 |
+
 **Conventions**
 
 - Resource URLs use plural nouns; the verb comes from the HTTP method; multi-word paths use kebab-case (`action-items`).
@@ -1080,6 +1086,57 @@ flowchart TB
 - no key meaning `LLMUnavailable`, and `reasoning_effort` sent only to gpt-oss models (a fake SDK client records the request);
 - long transcripts sending only the relevant lines and their neighbours;
 - validation, the rate limit and 404.
+
+### 9.7 Speaker analytics (Extra 2, built)
+
+```mermaid
+flowchart TB
+    card["SpeakerTalkTime mounts<br/>(notes panel, after Action items)"] --> api["GET /api/meetings/7/analytics"]
+    api --> own["get_owned_meeting: 404 if missing<br/>or someone else's"]
+    own --> sql["SQL, one row per speaker:<br/>SUM(end_ms − start_ms), COUNT(*), lines with '?'<br/>GROUP BY speaker_id (joined to name and colour)"]
+    own --> py["Python, the lines in order:<br/>word counts, and turns → longest monologue"]
+    sql --> merge["share of talk time, words per minute;<br/>sorted by talk time; dominant speaker"]
+    py --> merge
+    merge --> resp["200 MeetingAnalytics"]
+    resp --> bars["one bar per speaker,<br/>in their avatar colour"]
+```
+
+**Definitions** (all computed from `transcript_segments`):
+- **Talk time:** the sum of `end_ms − start_ms` over a speaker's lines. Its share is of the meeting's total talk time, rounded to one decimal, so the shares can add up to 99.9 or 100.1.
+- **Words:** whitespace-separated tokens. **Words per minute:** words ÷ minutes of talk, and 0 when the talk time is 0 (a zero-length line).
+- **Questions:** lines containing `?`.
+- **Longest monologue:** consecutive lines by one speaker form one turn, lasting from its first line's start to its last line's end. A pause inside a turn counts, because nobody else spoke.
+- **Dominant speaker:** the one with the most talk time; a tie goes to the alphabetically first name.
+- **Who's listed:** only people who speak. A participant who never speaks isn't listed.
+
+**Why each part runs where it does:**
+- **SQL for the totals:** sums and counts are what a database does best. The aggregation runs next to the data and returns one row per speaker, which is also the version that scales if only totals are needed.
+- **Python for words and monologues:**
+  - SQLite has no word-splitting function; counting spaces breaks on double spaces and newlines.
+  - Monologues depend on the order of the lines (a "gaps and islands" problem). Window functions (`LAG` plus a running `SUM`) could do it in SQL, but the Python loop is a dozen readable lines over a few dozen rows.
+
+**Computed on read, not stored:**
+- **Always correct:** it always matches the transcript, with nothing to keep in sync, invalidate or migrate.
+- **Cheap at this size:** two indexed queries over 30–60 lines. The `UNIQUE (meeting_id, position)` index finds a meeting's lines.
+- **When I'd cache or precompute instead:**
+  - **When:** long transcripts (thousands of lines), analytics in the library list (N meetings per request), or cross-meeting dashboards (a person's talk time over months).
+  - **How:** compute the stats once when the transcript is saved and store them in a `speaker_stats` table. Transcripts don't change after upload; with Extra 3 this would happen inside the background job. Recompute on the rare transcript edit.
+
+**Frontend:** `SpeakerTalkTime` sits in the notes panel, after Action items.
+- **Loading:** it fetches once per meeting through `getAnalytics` in `lib/api.ts`, with an `AbortController`.
+- **States:** a skeleton while loading; "There's no transcript to analyse yet" when nobody speaks; a toast if loading fails.
+- **Bars:** plain Tailwind (no chart library):
+  - a grey track, with a fill whose width is an inline style, because it's data, not a class;
+  - the fill uses the speaker's avatar colour class, which `Avatar` exports as `AVATAR_BG`;
+  - dark mode comes from the palette tokens.
+
+**Tests** (`tests/test_analytics_api.py`) use a hand-built JSON transcript with known numbers. They cover:
+- back-to-back lines merged into one turn;
+- a zero-length line (no division by zero);
+- a participant who never speaks;
+- a single speaker (100%);
+- another meeting's lines not being counted;
+- a 404.
 
 ## 10. Deployment
 

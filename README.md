@@ -32,6 +32,7 @@ Design notes, the database schema with an ER diagram, the full API reference and
   - Scrolling the transcript yourself pauses auto-scroll until you press "Sync with player".
 - Transcript search: highlights every match, shows "n of m", previous/next (also Enter / Shift+Enter).
 - AI notes: keywords, overview, chapters with time ranges (click to seek), and action items grouped by assignee.
+- **Speaker talk time:** one bar per speaker in their avatar colour, with talk time, words per minute, questions asked and longest monologue, computed from the transcript.
 
 **Create, edit, delete**
 - **New meeting:** a title, a date and time, and participants. The transcript is uploaded as a `.txt`, `.vtt` or `.json` file (picked or dragged in), or pasted. The backend parses it and generates the notes.
@@ -113,6 +114,22 @@ The six seeded meetings have hand-written notes. New meetings get notes from a r
 - **Keywords:** the most frequent meaningful words, leaving out stopwords and speakers' names.
 - **Chapters:** about 5-minute windows, each titled by its top terms.
 - **Action items:** sentences where someone commits to something ("I'll…", "we will…", "need to", "let's", "follow up", "by Friday"…). Questions and pleasantries are skipped, and the assignee is the speaker.
+
+## API
+
+Every route is under `/api`. The interactive docs at [`/docs`](https://glowworm-api.onrender.com/docs) show each request and response model, and the full reference is in [ARCHITECTURE.md §7](docs/ARCHITECTURE.md#7-api). Errors are always `{"detail": "..."}`; validation errors also list each field.
+
+| Area | Endpoints |
+|---|---|
+| Health | `GET /health` |
+| Meetings | `GET, POST /meetings` (list filters: `q`, `participant_id`, `tag_id`, `date_from`, `date_to`, `sort`) · `GET, PATCH, DELETE /meetings/{id}` |
+| Action items | `POST /meetings/{id}/action-items` · `PATCH, DELETE /action-items/{id}` |
+| People and tags | `GET /participants` · `GET, POST /tags` · `DELETE /tags/{id}` |
+| Export | `GET /meetings/{id}/export?content=transcript\|summary&format=txt\|md\|pdf` |
+| Search | `GET /search?q=`: full-text search over every transcript |
+| Highlights, comments, soundbites | `PUT, DELETE /segments/{id}/highlight` · `GET, POST /segments/{id}/comments` · `PATCH, DELETE /comments/{id}` · `GET, POST /meetings/{id}/soundbites` · `PATCH, DELETE /soundbites/{id}` |
+| Chat | `GET, POST, DELETE /meetings/{id}/chat` |
+| Speaker analytics | `GET /meetings/{id}/analytics` |
 
 ## Tests and checks
 
