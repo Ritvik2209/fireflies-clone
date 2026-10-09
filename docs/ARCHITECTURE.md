@@ -1,6 +1,6 @@
 # Architecture
 
-> **Status: updated during the extras (9 Oct).** Every core feature, all six bonuses (§9), CI (§10.1) and speaker analytics (§9.7) are built and deployed. The core:
+> **Status: updated during the extras (9 Oct).** Every core feature, all six bonuses (§9), CI (§10.1), speaker analytics (§9.7) and background processing for uploads (§8.6, §9.8) are built and deployed. The core:
 > - the backend core (database, parsers, summary generator, services, API, seed data, tests);
 > - the meetings library;
 > - the meeting page (player, transcript sync and search, notes);
@@ -88,7 +88,7 @@ flowchart LR
 | `models/` | One module per table group. Core: `user.py`, `meeting.py`, `participant.py`, `associations.py` (many-to-many link tables), `transcript.py`, `summary.py` (summary + chapters), `action_item.py`. Bonuses: `tag.py`, `annotations.py` (highlights, comments, soundbites), `chat.py`. `types.py` holds `UTCDateTime` (§6.7). Allowed values live next to their table as `Literal` types (`AvatarColor`, `GeneratedBy`) and generate the CHECK constraints. `__init__.py` imports every model so `Base.metadata` knows all tables before `create_all()` runs. |
 | `schemas/` | Pydantic request/response models per resource: `MeetingCreate`, `MeetingUpdate`, `MeetingFilters` (the list's query parameters), `MeetingListItem`, `MeetingDetail`, `ActionItemCreate/Update/Out`, `ParticipantOut`, … `base.py` has `ORMModel` (`from_attributes=True`), `ErrorResponse` and the error responses shown in `/docs`. |
 | `routers/` | One router per resource. Core: `health`, `meetings`, `action_items`, `participants`. Bonuses: `tags`, `export`, `search`, `annotations`, `chat`. Extras: `analytics`. HTTP concerns only; the shared `DbSession` and `CurrentUser` dependency types come from `dependencies.py`. |
-| `services/` | Business logic. Core: `meetings` (list with filters, `get_meeting` for the detail page, `get_owned_meeting` for the bare row, `create_meeting`, `update_meeting`, `delete_meeting`, and `save_meeting`, the one write path shared with the seed script), `participants` (get-or-create by name, colour from the name), `action_items`, `summary_generator` (pure; returns `MeetingNotes`). Bonuses: `tags`, `export`, `search` (FTS5), `annotations`, `chat`. Extras: `analytics` (speaker talk time, computed on read). |
+| `services/` | Business logic. Core: `meetings` (list with filters, `get_meeting` for the detail page, `get_owned_meeting` for the bare row, `update_meeting` (409 unless the meeting is ready), `delete_meeting`, `save_meeting` (the seed script's new, ready meeting) and `fill_meeting` (writes a transcript and its notes; shared by the seed script and the upload job)), `participants` (get-or-create by name, colour from the name), `action_items`, `summary_generator` (pure; returns `MeetingNotes`). Bonuses: `tags`, `export`, `search` (FTS5), `annotations`, `chat`. Extras: `analytics` (speaker talk time, computed on read), `processing` (Extra 3: saves an upload as processing and runs its background job). |
 | `llm/` | Bonus 6: `client.py` wraps the chosen provider's SDK behind one function; `prompts.py` builds the grounded prompt. Isolated so the provider is swappable. |
 | `parsers/` | `base.py` (`ParsedSegment`, `TranscriptParseError`, timestamp helpers), `txt_parser.py`, `vtt_parser.py`, `json_parser.py`, and `dispatcher.py` with `parse_transcript(text, format)`. |
 | `fonts/` | DejaVu Sans regular and bold, with their licence, for PDF export (bonus 3; `fpdf2`'s own fonts only cover Latin-1). |
@@ -105,10 +105,10 @@ flowchart LR
 | `app/search/page.tsx` | Global search results (bonus 4): `components/search/SearchResults` inside `<Suspense>`. |
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
 | `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1), `AppToaster` (where toasts appear; follows the theme). The top bar's New meeting button opens `CreateMeetingModal`. |
-| `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips), `TagPicker` (bonus 2: toggle and create tags in the edit modal). |
-| `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportDialog` (3: the download dialog, opened from the player bar), `HighlightsList`, `CommentThread` (inline under a line), `SoundbitesList`, `SoundbiteDialog` (5), `AskPanel` (6). Extras: `SpeakerTalkTime` (2: the talk-time bars). |
+| `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips), `TagPicker` (bonus 2: toggle and create tags in the edit modal). Extra 3: `MeetingRow` shows a Processing badge or a Failed row (reason and Delete); `ProcessingWatcher` (mounted in the top bar) follows a just-created meeting and toasts when it's ready. |
+| `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportDialog` (3: the download dialog, opened from the player bar), `HighlightsList`, `CommentThread` (inline under a line), `SoundbitesList`, `SoundbiteDialog` (5), `AskPanel` (6). Extras: `SpeakerTalkTime` (2: the talk-time bars), `UnprocessedMeeting` (3: the Processing or Failed view instead of an empty transcript). |
 | `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal` (on the native `<dialog>`), `Field` (label and hint), `Input` (and styled native `Select` and `Textarea`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
-| `hooks/` | `usePlayer` (virtual clock; `playRange` for soundbites), `useDebounce`, `useAnnotationActions` (bonus 5: stable save-and-update handlers). |
+| `hooks/` | `usePlayer` (virtual clock; `playRange` for soundbites), `useDebounce`, `useAnnotationActions` (bonus 5: stable save-and-update handlers), `useMeetingStatus` (Extra 3: polls a processing meeting until it's ready or failed). |
 | `lib/transcript.ts` | Pure functions: `findActiveIndex` (binary search for the line or chapter playing at a given time), `findMatches` and `groupMatchesByLine` (transcript search). They aren't hooks, because they hold no state. |
 | `lib/api.ts` | The only module that calls `fetch`: one typed function per endpoint; throws an `ApiError` carrying the server's `detail` message. |
 | `lib/types.ts` | TypeScript types that mirror the API's response models. |
@@ -117,6 +117,7 @@ flowchart LR
 | `lib/download.ts` | `saveFile(blob, filename)`: saves a fetched file through a temporary object URL (bonus 3). |
 | `lib/url.ts` | `replaceSearchParams()`: updates the query string with `history.replaceState` (no navigation; Next.js keeps `useSearchParams` in sync). |
 | `lib/currentUser.ts` | The default logged-in user shown in the top bar (matches the seeded user). |
+| `lib/events.ts` | Extra 3: `announceMeetingsChanged()` / `onMeetingsChanged()`, a browser event that tells an open library to reload after a create or delete elsewhere. |
 | `app/icon.svg` | Our own favicon (the Glowworm mark). |
 
 ## 4. Backend
@@ -344,6 +345,8 @@ erDiagram
         datetime meeting_date "UTC"
         int duration_ms "CHECK >= 0"
         string source "seed, upload or paste"
+        string status "processing, ready or failed (Extra 3)"
+        string error_message "only when failed"
         datetime created_at
         datetime updated_at
     }
@@ -492,7 +495,7 @@ Tables are created phase by phase, so each phase ships only what it uses:
 
 ### 6.4 Constraints
 
-- `meetings`: `CHECK (length(title) BETWEEN 1 AND 200)`, `CHECK (duration_ms >= 0)`, `CHECK (source IN ('seed', 'upload', 'paste'))`.
+- `meetings`: `CHECK (length(title) BETWEEN 1 AND 200)`, `CHECK (duration_ms >= 0)`, `CHECK (source IN ('seed', 'upload', 'paste'))`, and (Extra 3) `CHECK (status IN ('processing', 'ready', 'failed'))` and `CHECK ((status = 'failed') = (error_message IS NOT NULL))`.
 - `transcript_segments`: `CHECK (position >= 0)`, `CHECK (start_ms >= 0)`, `CHECK (end_ms >= start_ms)`, `UNIQUE (meeting_id, position)`.
 - `summaries`: `UNIQUE (meeting_id)`, `CHECK (generated_by IN ('seed', 'rule_based'))`.
 - `chapters`: `CHECK (start_ms >= 0)`, `UNIQUE (meeting_id, position)`.
@@ -527,6 +530,7 @@ SQLite automatically indexes primary keys and UNIQUE constraints, but **not** fo
 
 **Deliberately not indexed** (checked with `EXPLAIN QUERY PLAN` on SQLite 3.42):
 
+- **`meetings(status)`** (Extra 3). No request filters by status: the library lists every meeting. The only filter is the startup sweep, once per start, over a small table.
 - **`meetings(title)`.** The library matches titles by substring, `title LIKE '%q%'`. A B-tree index can only help a prefix match (`LIKE 'q%'`), so the plan is `SCAN meetings` with or without it; the index would only add write cost. With a handful of meetings a scan is instant; at scale, title search would move to FTS5 as well.
 - **`transcript_segments(meeting_id, start_ms)`.** No query filters segments by time: seeking happens in the browser, by binary search over the transcript that is already loaded. The transcript is fetched with `WHERE meeting_id = ? ORDER BY position`, which the `UNIQUE (meeting_id, position)` index already serves.
 
@@ -625,7 +629,7 @@ class Meeting(Base):
 - **`passive_deletes` where the database owns the rule.** On `Participant.segments` it is `"all"`: the ORM never touches a speaker's lines, so the database's RESTRICT is the single authority. On `Participant.action_items` it is `True`: the database's SET NULL unassigns the tasks. Bonus 5 adds it to segment-level children (highlights, comments): without it, deleting a meeting would make the ORM lazy-load every segment's annotations (two queries per segment) just to delete them.
 - **UTC-aware datetimes.** Every datetime column uses `UTCDateTime` (`models/types.py`), a small `TypeDecorator`. It stores naive UTC (SQLite has no time zones), rejects naive input and reads values back as timezone-aware UTC. Pydantic then serialises them with a `Z`, so browsers never mistake UTC for local time.
 - **Two loaders.** `get_meeting` loads everything the meeting page shows; `get_owned_meeting` loads only the row (for deletes and for adding action items). Both filter by `owner_id` and raise `NotFoundError`.
-- **Write pattern.** `save_meeting` adds the whole object graph and calls `flush()` (ids assigned, still uncommitted). The caller commits once, then re-reads through `get_meeting`, so the response is exactly what a later GET returns.
+- **Write pattern.** `fill_meeting` adds a transcript's whole object graph to a meeting and calls `flush()` (ids assigned, still uncommitted); the caller commits once. The seed script uses it through `save_meeting` (a new meeting), the upload job on the meeting it already saved as processing. Because that meeting is persistent, the collections are assigned inside `db.no_autoflush`, and `duration_ms` is set first, since any query autoflushes the meeting.
 - **No delete cascade on the many-to-many relationships.** For `secondary=` relationships SQLAlchemy removes only the link rows; participants and tags themselves must survive.
 - **No N+1 queries.** The detail query loads every collection with `selectinload`: one query for the meeting plus one `SELECT … WHERE meeting_id IN (…)` per relationship, 6 in total for the core however long the transcript is. The library list does the same for participants (2 queries for any number of meetings). Bonus data that is per segment (comment counts, highlights) is fetched with one aggregate query each, never one per line. `selectinload` is preferred over `joinedload` for collections because joining several collections in one query multiplies the rows returned.
 - **`create_all()` instead of migrations.** It only creates missing tables and never alters existing ones. That is acceptable for a time-boxed demo whose database is re-created on every Render deploy. Production would use Alembic.
@@ -647,9 +651,9 @@ Base path `/api`. JSON in and out, except export, which returns a file. Every ro
 |---|---|---|---|---|
 | GET | `/health` | none | 200 `{"status": "ok", "sqlite_version": "3.42.0", "fts5": true, "llm_configured": false}`: also proves the host's SQLite supports full-text search, and says whether the chat has an LLM key (never the key itself) | none |
 | GET | `/meetings` | query: `q`, `participant_id`, `date_from`, `date_to`, `sort=recent\|oldest` | 200 `MeetingListItem[]` | 422 |
-| POST | `/meetings` | `MeetingCreate`: `title`, `meeting_date`, `participant_names[]`, `transcript_text`, `format` (`txt\|vtt\|json`), `source` (`upload\|paste`) | 201 `MeetingDetail` | 422 (validation, or unparseable transcript) |
+| POST | `/meetings` | `MeetingCreate`: `title`, `meeting_date`, `participant_names[]`, `transcript_text`, `format` (`txt\|vtt\|json`), `source` (`upload\|paste`) | **202** `MeetingListItem` with `status: "processing"`; the transcript is parsed in a background job (§8.6, §9.8) | 422 (validation: a missing field, an unknown format or a blank transcript; an unparseable transcript now makes the meeting `failed`) |
 | GET | `/meetings/{id}` | none | 200 `MeetingDetail` | 404 |
-| PATCH | `/meetings/{id}` | `MeetingUpdate`: any of `title`, `participant_names[]` | 200 `MeetingDetail` | 404, 409, 422 |
+| PATCH | `/meetings/{id}` | `MeetingUpdate`: any of `title`, `participant_names[]` | 200 `MeetingDetail` | 404, 409 (also when the meeting isn't `ready`), 422 |
 | DELETE | `/meetings/{id}` | none | 204 | 404 |
 | POST | `/meetings/{id}/action-items` | `ActionItemCreate`: `text`, optional `assignee_id` | 201 `ActionItem` | 404, 422 |
 | PATCH | `/action-items/{id}` | `ActionItemUpdate`: any of `text`, `assignee_id`, `is_completed` | 200 `ActionItem` | 404, 422 |
@@ -805,54 +809,65 @@ No network request is involved: the whole transcript is already in memory.
 
 No network request is involved.
 
-### 8.6 Creating a meeting from an upload
+### 8.6 Creating a meeting from an upload (background processing since Extra 3)
 
 ```mermaid
 sequenceDiagram
     actor U as User
     participant M as CreateMeetingModal
-    participant A as lib/api.ts
+    participant W as ProcessingWatcher (top bar)
+    participant L as Library (MeetingRow)
     participant R as routers/meetings.py
-    participant S as services/meetings.py
-    participant X as parsers/dispatcher.py
-    participant G as summary_generator.py
+    participant P as services/processing.py
     participant D as SQLite
-    U->>M: choose a file, fill in title, date and participants, click Create
+    U->>M: choose a file (or paste), fill in title, date and participants, click Create
     M->>M: read the file with file.text(), take the format from the extension
-    M->>A: createMeeting(title, date, participants, text, format)
-    A->>R: POST /api/meetings (JSON)
-    R->>R: validate MeetingCreate (else 422)
-    R->>S: create_meeting(db, user, data)
-    S->>X: parse_transcript(text, format)
-    X-->>S: list of ParsedSegment (or TranscriptParseError, sent as 422)
-    S->>S: sort segments, get or create participants by name
-    S->>G: generate_summary(segments)
-    G-->>S: overview, keywords, chapters, action items
-    S->>D: INSERT meeting, segments, summary, chapters, action items, then one COMMIT
-    S-->>R: Meeting object
-    R-->>A: 201 MeetingDetail
-    A-->>M: created meeting
-    M->>U: success toast, navigate to /meetings/new-id
+    M->>R: POST /api/meetings (JSON)
+    R->>R: validate MeetingCreate: 422 for a missing field, unknown format or blank transcript
+    R->>P: start_meeting(): INSERT the bare meeting, status = processing, COMMIT
+    R-->>M: 202 MeetingListItem (status "processing")
+    R->>P: after the response: process_meeting(id, data) in a BackgroundTask
+    M->>U: toast "Processing your transcript…", go to /meetings
+    M->>W: watch this meeting
+    P->>D: own session: parse, fill_meeting (participants, segments, notes), status = ready, one COMMIT
+    Note over P,D: any error: ROLLBACK, then UPDATE status = failed, error_message = the reason
+    loop every 1.5 s while processing (useMeetingStatus)
+        W->>R: GET /api/meetings/{id}
+        L->>R: GET /api/meetings/{id} (a row shown as Processing)
+    end
+    R-->>W: status ready (or failed)
+    W->>U: toast "“title” is ready" (or the reason), and an open library reloads
 ```
 
 1. **New meeting** in the top bar opens `CreateMeetingModal`. It asks for:
    - a title;
    - the date and time (a `datetime-local` input, defaulting to now);
    - participants, as chips (optional: speakers are added automatically);
-   - and either **Upload file** or **Paste text**.
-2. A file can be picked or dragged in. The browser reads it with `await file.text()`, takes the format from the extension (`.txt`, `.vtt`, `.json`) and rejects other types and files over 1 MB. If the title is still empty, it's prefilled from the file name. Pasted text comes with a format chosen from a dropdown.
-3. Submit calls `createMeeting({ title, meeting_date, participant_names, transcript_text, format, source: "upload" | "paste" })`, with the local date converted to UTC (`new Date(value).toISOString()`).
-4. `routers/meetings.py` validates the body against `MeetingCreate` (title length, format enum, non-empty text, maximum length): 422 if invalid.
-5. `services/meetings.create_meeting()`:
-   1. `parse_transcript(text, format)`: the dispatcher picks the txt, vtt or json parser and returns `list[ParsedSegment]`, or raises `TranscriptParseError` ("Line 4: expected '[HH:MM:SS] Speaker Name: text' or 'Speaker Name: text'"), which becomes a 422.
-   2. `generate_notes(segments)` returns `MeetingNotes`: overview, keywords, chapters and action items (assignee = speaker, `source_start_ms` = segment start), marked `generated_by = "rule_based"`.
-   3. `save_meeting(...)` (shared with the seed script):
-      - sorts the segments by `start_ms` (stable sort) and assigns `position` 0, 1, 2, …;
-      - resolves every speaker, name typed in the form and assignee through `get_or_create_participant(name)`, which matches case-insensitively and gives new people a colour derived from their name;
-      - builds the `Meeting` (`duration_ms` = the last segment's `end_ms`) with its segments, participant links, summary, chapters and action items, then `flush()`es.
-   4. One `db.commit()`: everything is written, or nothing is. (Once bonus 4 exists, the insert trigger also indexes each new segment in `segments_fts`, inside the same transaction.) The meeting is then re-read with `get_meeting`.
-6. The API answers 201 with the `MeetingDetail`. The modal closes, a success toast appears, and the app navigates to `/meetings/{id}`.
-7. On any error, a toast shows the server's `detail`, and the modal stays open with the user's input intact.
+   - either **Upload file** or **Paste text**.
+2. **Reading the file:** a file can be picked or dragged in.
+   - The browser reads it with `await file.text()` and takes the format from the extension (`.txt`, `.vtt`, `.json`).
+   - It rejects other types and files over 1 MB.
+   - If the title is still empty, it's prefilled from the file name. Pasted text comes with a format chosen from a dropdown.
+3. **Submit:** it calls `createMeeting(...)`, with the local date converted to UTC.
+4. **Validation (synchronous):** `routers/meetings.py` validates `MeetingCreate`: title length, the format enum, a transcript that isn't blank, and the maximum length. Obvious bad input gets a **422** at once and creates nothing.
+5. **The 202:** `processing.start_meeting()` inserts the bare meeting (title, date, source, `duration_ms = 0`, `status = "processing"`) and commits, so the job and the pollers can see it. The router schedules `processing.process_meeting(id, data)` as a FastAPI `BackgroundTask` and answers **202 Accepted** with the meeting as a `MeetingListItem`.
+6. **The job** runs after the response is sent, in the same server process. It opens **its own session**, because the request's session is closed by then.
+   1. **Parse:** `parse_transcript(text, format)` returns `list[ParsedSegment]`, or raises `TranscriptParseError` ("Line 4: expected '[HH:MM:SS] Speaker Name: text' or 'Speaker Name: text'").
+   2. **Notes:** `generate_notes(segments)` returns `MeetingNotes`: overview, keywords, chapters and action items (assignee = speaker), marked `rule_based`.
+   3. **Fill:** `fill_meeting(...)` is shared with the seed script.
+      - It sorts the segments by `start_ms` (a stable sort) and numbers them.
+      - It resolves every speaker, name typed in the form and assignee through `get_or_create_participant(name)`.
+      - It sets `duration_ms` and adds the segments, participant links, summary, chapters and action items, then `flush()`es. The FTS5 insert trigger indexes each segment in the same transaction.
+   4. **Commit:** `status = "ready"`, then **one commit**. Everything is saved, or nothing is.
+   5. **On any error:** the transaction is rolled back, so no half-saved segments or people are kept. A second, tiny transaction then sets `status = "failed"` and `error_message`:
+      - for a parse or validation error, the parser's own message;
+      - for anything else, a generic message, with the real error logged.
+7. **The browser:**
+   - It shows the toast "Processing your transcript…", goes to the library, and fires a `meetings-changed` event, so a library that's already open reloads.
+   - `ProcessingWatcher` in the top bar polls the new meeting with `useMeetingStatus`, so it works on any page the user goes to. When the meeting settles, it toasts "“title” is ready" (or the reason it failed) and reloads an open library.
+   - A library row whose meeting is `processing` shows a **Processing** badge and polls too; a `failed` one shows **Failed**, the reason and **Delete**.
+   - Opening a processing meeting shows "Processing your transcript…" and polls until the meeting can be shown. A failed one shows the reason, with Delete.
+   - Toasts use the id `processed-{id}`, so the same result never toasts twice.
 
 ### 8.7 Toggling an action item
 
@@ -1137,6 +1152,55 @@ flowchart TB
 - a single speaker (100%);
 - another meeting's lines not being counted;
 - a 404.
+
+### 9.8 Background processing for uploads (Extra 3, built)
+
+The full step-by-step flow is §8.6. This section covers the design choices.
+
+**Schema:**
+- `meetings.status` is `TEXT NOT NULL DEFAULT 'ready'`, with `CHECK (status IN ('processing', 'ready', 'failed'))`.
+- `meetings.error_message` is nullable, and `CHECK ((status = 'failed') = (error_message IS NOT NULL))`: the database itself guarantees that a message exists exactly when processing failed.
+- Seed meetings are `ready` by default.
+- **No index on `status`:** no request filters by it. The library lists every meeting, and its only filter is the once-per-start sweep below, a scan of a small table. If a dashboard ever listed "all failed meetings", that query would earn an index.
+
+**What each layer does:**
+- **`routers/meetings.py`:** HTTP only. It validates, calls `processing.start_meeting`, schedules `processing.process_meeting` with `BackgroundTasks`, and returns 202.
+- **`services/processing.py`:**
+  - `start_meeting`;
+  - `process_meeting`, the job, with its own `SessionLocal()`;
+  - `fail_interrupted`, the startup sweep;
+  - `_mark_failed`, a plain `UPDATE`, so a meeting deleted mid-job simply changes no row.
+- **`services/meetings.fill_meeting`:** the one place a transcript and its notes are written, shared by the job and the seed script.
+  - The meeting already exists when the job fills it. So the collections are assigned inside `db.no_autoflush`, which stops the query that loads the old (empty) collection from flushing half-built rows.
+  - `duration_ms` is set before the first query, because a query autoflushes the meeting and `duration_ms` is `NOT NULL`.
+- **Guard:** `PATCH /meetings/{id}` on a meeting that isn't `ready` is a 409. It would race the job, or edit a meeting with no transcript. Deleting is always allowed.
+- **Startup sweep:** in `main.py`'s lifespan, `fail_interrupted()` marks every meeting still `processing` as `failed` ("Processing stopped when the server restarted…"). Its job died with the old process, which also happens on every `uvicorn --reload`. Without the sweep, it would spin forever.
+
+**Frontend:**
+- **`useMeetingStatus(meeting, onSettled)`:**
+  - polls `GET /meetings/{id}` every 1.5 s, chaining timeouts, so only one request is ever in flight;
+  - stops when the meeting is ready or failed, on unmount (`AbortController` plus `clearTimeout`), or after 2 minutes (`timedOut`);
+  - keeps the newest `onSettled` in a ref, so a re-render doesn't restart the polling.
+- **Used by:** `MeetingRow` (Processing badge, Failed row), `UnprocessedMeeting` (the meeting page) and `ProcessingWatcher` (in the top bar).
+- **Why a watcher:** in practice the job finishes before the library even loads, so no row would ever be "processing". The watcher, mounted for the lifetime of the app shell, follows the meeting this tab just created, whatever page the user is on.
+- **`lib/events.ts`:** a tiny browser event, `glowworm:meetings-changed`. The create and delete dialogs live outside the library page, and this tells an open library to reload.
+
+**Tests** (`tests/test_processing.py`, plus every create helper moved to `tests/helpers.py`):
+- 202 with `processing`, then `ready` with segments, a summary and participants (TestClient runs background tasks before `post()` returns);
+- a malformed transcript ends `failed` with the parser's message and nothing saved;
+- a crash after `fill_meeting` rolls back every segment and participant;
+- blank, unknown-format and untitled requests are still an immediate 422;
+- editing while processing is a 409;
+- the startup sweep;
+- a job for a meeting that was deleted first does nothing.
+
+**The limitation, and the production version:**
+- **Today:** `BackgroundTasks` runs inside the web server process. A job is lost if the server restarts mid-way; the sweep turns that into a clear "failed". It can't spread across machines or survive a deploy.
+- **Production:**
+  - **A job queue** (Celery, RQ or Arq) on Redis, run by separate workers. It brings retries with backoff, an idempotent job keyed by meeting id, a dead-letter queue, and visibility into jobs.
+  - **Status pushed** to the browser (Server-Sent Events or WebSockets) instead of polling.
+  - **Object storage** for the raw upload, so a retry can re-read it.
+  - **The same pipeline for a live meeting bot:** it would push audio chunks to the queue for speech-to-text, then run this same parse-and-notes step.
 
 ## 10. Deployment
 

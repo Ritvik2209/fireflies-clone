@@ -35,7 +35,7 @@ Design notes, the database schema with an ER diagram, the full API reference and
 - **Speaker talk time:** one bar per speaker in their avatar colour, with talk time, words per minute, questions asked and longest monologue, computed from the transcript.
 
 **Create, edit, delete**
-- **New meeting:** a title, a date and time, and participants. The transcript is uploaded as a `.txt`, `.vtt` or `.json` file (picked or dragged in), or pasted. The backend parses it and generates the notes.
+- **New meeting:** a title, a date and time, and participants. The transcript is uploaded as a `.txt`, `.vtt` or `.json` file (picked or dragged in), or pasted. The meeting appears in the library straight away as **Processing**: the backend parses the transcript and writes the notes in the background. A toast says when it's ready, or the row turns **Failed** with the reason and a Delete button.
 - **Edit** a meeting's title and participants. **Delete** asks for confirmation first.
 - **Action items:** add, edit text and assignee, mark complete, delete.
 - Every change is saved in SQLite and confirmed with a toast; failures show the server's error message.
@@ -105,7 +105,7 @@ Sample files for each format are in [`backend/samples/`](backend/samples/).
 | `.vtt` | Standard WebVTT cues. The speaker comes from `<v Name>` or a `Name:` prefix. |
 | `.json` | `[{"speaker": "...", "start": 12.5, "end": 18.0, "text": "..."}]`, with times in seconds. |
 
-Everyone who speaks becomes a participant. Invalid input gets a clear error with the line or item number (HTTP 422).
+Everyone who speaks becomes a participant. A missing title, an unknown format or an empty transcript is rejected at once (HTTP 422). A file that can't be parsed becomes a **Failed** meeting whose message names the line or item number.
 
 ## How the notes are generated
 
@@ -122,7 +122,7 @@ Every route is under `/api`. The interactive docs at [`/docs`](https://glowworm-
 | Area | Endpoints |
 |---|---|
 | Health | `GET /health` |
-| Meetings | `GET, POST /meetings` (list filters: `q`, `participant_id`, `tag_id`, `date_from`, `date_to`, `sort`) · `GET, PATCH, DELETE /meetings/{id}` |
+| Meetings | `GET, POST /meetings` (list filters: `q`, `participant_id`, `tag_id`, `date_from`, `date_to`, `sort`) · `GET, PATCH, DELETE /meetings/{id}`. `POST` answers 202: the transcript is processed in the background. |
 | Action items | `POST /meetings/{id}/action-items` · `PATCH, DELETE /action-items/{id}` |
 | People and tags | `GET /participants` · `GET, POST /tags` · `DELETE /tags/{id}` |
 | Export | `GET /meetings/{id}/export?content=transcript\|summary&format=txt\|md\|pdf` |
@@ -130,6 +130,21 @@ Every route is under `/api`. The interactive docs at [`/docs`](https://glowworm-
 | Highlights, comments, soundbites | `PUT, DELETE /segments/{id}/highlight` · `GET, POST /segments/{id}/comments` · `PATCH, DELETE /comments/{id}` · `GET, POST /meetings/{id}/soundbites` · `PATCH, DELETE /soundbites/{id}` |
 | Chat | `GET, POST, DELETE /meetings/{id}/chat` |
 | Speaker analytics | `GET /meetings/{id}/analytics` |
+
+## Database
+
+SQLite with foreign keys enforced; SQLAlchemy creates the tables at startup. The ER diagram and every constraint are in [ARCHITECTURE.md §6](docs/ARCHITECTURE.md#6-database).
+
+| Table | Holds |
+|---|---|
+| `users` | The default user (there's no real login). |
+| `meetings` | Title, date, duration, source, and `status` (`processing`, `ready` or `failed`) with `error_message` (Extra 3). |
+| `participants`, `meeting_participants` | People, shared across meetings. |
+| `transcript_segments` | The transcript lines: speaker, start and end in ms, text. `segments_fts` indexes them for search. |
+| `summaries`, `chapters`, `action_items` | The AI notes. |
+| `tags`, `meeting_tags` | Tags (bonus 2). |
+| `highlights`, `segment_comments`, `soundbites` | Annotations (bonus 5). |
+| `chat_messages` | The "Ask about this meeting" history (bonus 6). |
 
 ## Tests and checks
 
@@ -161,6 +176,7 @@ No secrets are needed: the chat tests replace the LLM with a fake. The badge at 
 - **SQLite on Render's free tier is temporary.** The disk is wiped on every restart or redeploy, so the database re-seeds the six sample meetings, and meetings you create don't survive a restart. Production would use a persistent database such as Postgres, with migrations.
 - **Dates are stored in UTC** and shown in your browser's time zone.
 - **Library search matches titles only**, and there's no pagination; both are fine at this scale. Searching inside transcripts is the global-search bonus.
+- **Uploads are processed in the background inside the API process** (FastAPI `BackgroundTasks`). A restart mid-job loses the job (startup marks such meetings failed), and it can't scale across machines. Production would use a job queue (Celery or RQ with Redis) with retries, and push status updates instead of polling.
 - **People are identified by name,** matched case-insensitively. People who speak in a transcript always stay participants of that meeting.
 
 ## Project structure

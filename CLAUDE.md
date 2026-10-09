@@ -199,7 +199,7 @@ frontend/src/
 - **Default user:** Alex Morgan `<alex.morgan@example.com>`, avatar colour `indigo` (shown by `frontend/src/lib/currentUser.ts`; the backend seed must match). `get_current_user()` returns it; every service query is scoped by `owner_id`. Another user's meeting → 404. Annotations and chat messages record their author in `user_id`.
 - **Next.js 16.4** (Turbopack; Tailwind v4 through its Turbopack loader). Cache Components is **off** (all data is fetched client-side). Next's own `frontend/AGENTS.md` says APIs changed since training data: read `frontend/node_modules/next/dist/docs/` before using a Next API you're unsure of.
 - **Layers:** routers → services (business rules, `db.commit()`) → models. Parsers and the summary generator are pure functions with no DB access. `llm/` knows the SDK but not the database.
-- **Errors:** JSON `{"detail": "<message>"}` everywhere (validation errors add an `errors` list). Codes: 200; 201 (POST returns the created resource); 204 (DELETE); 404; 409 (duplicate tag name, or removing a participant who speaks in the meeting's transcript); 422 (invalid input, unparseable transcript); 429 (chat rate limit).
+- **Errors:** JSON `{"detail": "<message>"}` everywhere (validation errors add an `errors` list). Codes: 200; 201 (POST returns the created resource); 202 (`POST /meetings` since Extra 3: processed in the background); 204 (DELETE); 404; 409 (duplicate tag name, removing a participant who speaks in the meeting's transcript, or editing a meeting that isn't ready); 422 (invalid input; since Extra 3 an unparseable transcript fails the meeting instead); 429 (chat rate limit).
 - **SQLite:** `PRAGMA foreign_keys=ON` via an engine `connect` event; `check_same_thread=False`; `Base.metadata.create_all()` at startup (no Alembic, a documented trade-off); seed when the DB is empty.
 - **ORM:** SQLAlchemy 2.0 typed style (`Mapped`, `mapped_column`); `relationship(back_populates=...)` on both sides; parent collections use `cascade="all, delete-orphan"` **and** FKs use `ondelete="CASCADE"`; many-to-many via `secondary=`; `Meeting.summary` uses `uselist=False`; segments and chapters `order_by=position`; `selectinload` for collections (list and detail). Segment-level children (highlights, comments) also get `passive_deletes=True`, so deleting a meeting doesn't lazy-load every segment's annotations; the DB cascade removes them.
 - **Indexes (decided):** no index on `meetings.title` (a `LIKE '%q%'` search can't use a B-tree index) and no `(meeting_id, start_ms)` index on segments (seeking happens in the browser; transcripts load via `UNIQUE (meeting_id, position)`). Both are documented in ARCHITECTURE.md §6.5.
@@ -209,13 +209,13 @@ frontend/src/
 - **Player:** `usePlayer` computes `currentMs = anchorMs + (performance.now() − anchorTime) × rate` in a rAF loop (no drift); a seek or speed change sets a new anchor. `findActiveIndex` (`lib/transcript.ts`, a plain function, not a hook) binary-searches for the last segment with `start_ms ≤ currentMs`. `TranscriptLine` is `React.memo`, so only lines whose active state changes re-render. Soundbites (bonus 5) use `playRange(start, end)`, which pauses automatically at `end`.
 - **XSS-safe rendering:** search matches, FTS snippets and chat citations are rendered by splitting text into strings and React elements (`<mark>`, seek buttons). Never use `dangerouslySetInnerHTML`. FTS `snippet()` marks matches with `\x02` / `\x03`.
 - **FTS queries (bonus 4):** split user input into words and double-quote each before `MATCH` (raw input such as `don't` is an FTS5 syntax error); always a bound parameter. Tokenizer `porter unicode61`. Rank with `bm25()` (lower = better). Chat retrieval (bonus 6) drops stopwords and joins the quoted terms with `OR`.
-- **Uploads:** the browser reads the file (`file.text()`), takes the format from the extension, enforces a size cap, and POSTs JSON `{transcript_text, format, source}`.
+- **Uploads:** the browser reads the file (`file.text()`), takes the format from the extension, enforces a size cap, and POSTs JSON `{transcript_text, format, source}`. Since Extra 3 the API answers 202 and parses it in a background job.
 - **LLM chat (bonus 6):** `llm/` wraps the SDK behind one function and builds the prompt; the transcript is delimited and treated as data, not instructions. The key never leaves the backend. No key, or an LLM error/timeout → the FTS "Relevant moments" answer (`answered_by = "fallback"`). Question length cap → 422; per-meeting messages-per-minute limit, counted from `chat_messages` → 429.
 - **Phase 2 implementation choices** (details in ARCHITECTURE.md §4.5–4.8 and §6.7):
   - SQLAlchemy **2.1.4** with the 2.0-style typed API.
   - Every datetime column uses `UTCDateTime` (`models/types.py`): naive UTC stored, aware UTC read back, naive input rejected.
   - Allowed values are `Literal` types next to their table (`AvatarColor`, `GeneratedBy`), and they generate the CHECK constraints.
-  - `services/meetings.save_meeting()` is the **single write path** for the create endpoint and the seed script. It takes a storage-independent `MeetingNotes` (from `generate_notes` or from seed JSON), sorts segments, and makes every speaker, named participant and assignee a participant. Callers commit once, then re-read with `get_meeting`.
+  - `services/meetings.fill_meeting()` is the **single write path** for a transcript and its notes, shared by the seed script (through `save_meeting()`) and the upload job (Extra 3). It takes a storage-independent `MeetingNotes` (from `generate_notes` or from seed JSON), sorts segments, and makes every speaker, named participant and assignee a participant. Callers commit once, then re-read with `get_meeting`.
   - Removing a participant from a meeting unassigns their action items in it. Assignees must be participants of the meeting (422).
   - PATCH bodies reject explicit `null` for non-nullable fields (422 "x: can't be null"). The list filters are a Pydantic query model, with timezone-aware dates and an inverted range → 422. Title search escapes `%`/`_`.
   - Parsers: the first `.txt` line decides timestamped or untimestamped mode; continuation lines join the previous utterance. The generator excludes speakers' names from keywords, needs a person for "will" ("I'll", "we will"), and skips questions and pleasantries.
@@ -281,6 +281,26 @@ frontend/src/
     - Edit and delete icons show on hover or keyboard focus.
     - The header's Add is disabled while the add form is open (the form's button says "Add item").
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
+- **Extra 3 (background processing) implementation choices** (details in ARCHITECTURE.md §8.6 and §9.8):
+  - **Schema:** `meetings.status` (default `ready`) and `error_message`, with CHECKs, so a message exists exactly when the status is `failed`. No index on `status` (nothing filters by it).
+  - **Create:** `POST /meetings` validates (422), `processing.start_meeting()` commits the bare meeting as `processing`, and the router answers 202 and schedules `processing.process_meeting()` with `BackgroundTasks`.
+  - **The job:**
+    - its own `SessionLocal()`;
+    - parse, `generate_notes`, `fill_meeting`, `status = ready`, one commit;
+    - an `AppError` stores its `detail`, and anything else stores a generic message (logged);
+    - either way it rolls back first, then `_mark_failed` (a plain UPDATE).
+  - **Guards:**
+    - editing a meeting that isn't ready is a 409;
+    - at startup, `fail_interrupted()` marks meetings left `processing` as failed;
+    - a blank transcript is a 422 before the 202.
+  - **Frontend:**
+    - `useMeetingStatus` polls every 1.5 s, one request at a time, for at most 2 minutes;
+    - `MeetingRow` shows the Processing badge or the Failed row (with Delete);
+    - `UnprocessedMeeting` is the meeting page's Processing or Failed view;
+    - `ProcessingWatcher` sits in the top bar, because the job usually finishes before the library loads;
+    - `lib/events.ts` reloads an open library;
+    - toasts use the id `processed-{id}`, so no result toasts twice.
+  - **Tests:** `tests/helpers.create_meeting()` does POST (202), then GET; new tests are in `tests/test_processing.py`.
 - **Extra 2 (speaker analytics) implementation choices** (details in ARCHITECTURE.md §9.7):
   - **Backend files:** `routers/analytics.py`; `schemas/analytics.py` (`MeetingAnalytics`, `SpeakerAnalytics`); `services/analytics.py`, which returns frozen dataclasses (`MeetingStats`, `SpeakerStats`) that the response model reads.
   - **Where it's computed:** one `GROUP BY speaker_id` query (talk time, lines, questions, joined to the participant's name and colour); words and turns in a Python loop over the ordered lines.
@@ -444,6 +464,10 @@ gh run watch <run-id> --exit-status   # non-zero exit if the run fails
 - **New routes and `tsc`:** `PageProps<"/route">` types come from Next's generated route types. After adding a route, run `npx next typegen` (or `dev`/`build`) before `tsc --noEmit`.
 - **fpdf2's built-in fonts only cover Latin-1.** That's why PDFs use the bundled DejaVu Sans in `backend/app/fonts/` (the owner approved it in Phase 9). Emoji still won't render, since DejaVu has no emoji glyphs.
 - **Cross-origin response headers:** JavaScript can only read headers the API exposes. `Content-Disposition` is in `expose_headers` in `main.py`; add any new header the frontend must read there too.
+- **Background tasks (Extra 3):**
+  - `TestClient` runs them before `post()` returns, so a test can GET the processed meeting straight away.
+  - `uvicorn --reload` restarts kill running jobs; the startup sweep marks those meetings failed.
+  - When filling a meeting that already exists, assign its collections inside `db.no_autoflush` (a lazy load would otherwise flush half-built rows and SQLAlchemy warns).
 - **LLM model names and SDK usage:** check current documentation; don't rely on memory.
   - Providers retire models. Groq made `llama-3.3-70b-versatile` Enterprise-only on 16 Aug 2026, though it stays in the model list. The live chat then answered from search, with no clue why, until the fallback logged its reason.
   - Check Groq's deprecations page and the free plan's rate-limits table, not only the model list. `/api/health` shows `llm_configured`; Render's logs show why a question fell back.
@@ -472,6 +496,6 @@ gh run watch <run-id> --exit-status   # non-zero exit if the run fails
 **Part 3: Extras** (scope addition; details under Locked scope). Phase 13 starts no later than 16:15 IST, whatever state they are in; an unfinished extra is reverted.
 - [x] **Extra 1: CI with GitHub Actions (~30 min)**
 - [x] **Extra 2: Speaker analytics (~1 h)**
-- [ ] **Extra 3: Background processing for uploads (~1.5 h)**
+- [x] **Extra 3: Background processing for uploads (~1.5 h)**
 
 - [ ] **Phase 13: Final polish and ship (~1.5 h, starts no later than 16:15 IST, whatever state the extras are in).** Final deploy; complete README (setup, stack, architecture overview, schema + ER diagram, API overview, assumptions, which bonuses are done); test everything live; regenerate `INTERVIEW_PREP.md` and update `docs/ARCHITECTURE.md` from the final code (every bonus built); final commit and push; give the owner the GitHub URL and the live URL.
