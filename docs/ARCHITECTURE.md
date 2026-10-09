@@ -104,7 +104,7 @@ flowchart LR
 | `app/search/page.tsx` | Global search results (bonus 4). |
 | `app/{record,integrations,team,settings}/page.tsx` | "Coming soon" placeholder pages. |
 | `components/layout/` | `Sidebar`, `Topbar`, `TopbarSearch` (the title search, §5.1), `Logo`, `navigation.ts` (the nav links and section titles, shared by both bars), `ThemeToggle` (bonus 1), `AppToaster` (where toasts appear; follows the theme). The top bar's New meeting button opens `CreateMeetingModal`. |
-| `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips). |
+| `components/meetings/` | `MeetingsLibrary` (the library page's state and data loading), `MeetingFilters` (participant, date range, sort, clear), `MeetingList` (day groups, skeleton, empty/no-results/error states), `MeetingRow`, `CreateMeetingModal` (upload or paste a transcript), `EditMeetingModal` (title and participants), `DeleteMeetingDialog`, `ParticipantsInput` (names as chips), `TagPicker` (bonus 2: toggle and create tags in the edit modal). |
 | `components/meeting-detail/` | Core: `MeetingView` (loads the meeting: skeleton, not found, error), `MeetingWorkspace` (owns the player; lays out notes, transcript and player), `MeetingHeader`, `SummaryPanel`, `ChaptersList`, `ActionItemsList`, `TranscriptPanel` (search state, auto-scroll, "Sync with player"), `TranscriptLine`, `TranscriptSearch`, `MediaPlayer`, `ActionItemForm` (add or edit an item). Bonuses: `ExportMenu` (3), `HighlightsList`, `CommentThread`, `SoundbitesList` (5), `AskPanel` (6). |
 | `components/ui/` | Reusable primitives: `Button` (and `buttonClasses` for links that look like buttons), `IconButton`, `Modal` (on the native `<dialog>`), `Field` (label and hint), `Input` (and styled native `Select` and `Textarea`), `Badge`, `Avatar`, `AvatarStack` (a row of participant initials), `TagChip` (bonus 2), `EmptyState`, `ComingSoon`, `Skeleton`, `SlowLoadingHint` (the cold-start note). |
 | `hooks/` | `usePlayer` (virtual clock), `useDebounce`. |
@@ -224,7 +224,7 @@ pytest, 57 tests: parsers, the summary generator, models (the database really en
 | URL | Page | Notes |
 |---|---|---|
 | `/` | none | Redirects to `/meetings`. |
-| `/meetings` | Library | Filters are mirrored in the query string (`?q=&participant=&from=&to=&sort=`; `from`/`to` are local `YYYY-MM-DD` days; `tag` arrives in bonus 2), so a filtered view survives a reload and can be shared. |
+| `/meetings` | Library | Filters are mirrored in the query string (`?q=&participant=&from=&to=&sort=`; `from`/`to` are local `YYYY-MM-DD` days; `tag` is a tag id, from bonus 2), so a filtered view survives a reload and can be shared. |
 | `/meetings/[id]` | Meeting | From bonus 4, an optional `?t=<ms>` starts the player at that moment (used by global search). |
 | `/search` | Global search results | `?q=` (bonus 4). |
 | `/record`, `/integrations`, `/team`, `/settings` | Placeholders | Fireflies-styled "Coming soon" pages. |
@@ -659,7 +659,7 @@ Base path `/api`. JSON in and out, except export, which returns a file. Every ro
 | Bonus | Method | Path | Request | Success | Errors |
 |---|---|---|---|---|---|
 | 2 | GET | `/tags` | none | 200 `Tag[]` | none |
-| 2 | POST | `/tags` | `TagCreate`: `name`, `color` | 201 `Tag` | 409 (duplicate name), 422 |
+| 2 | POST | `/tags` | `TagCreate`: `name`, optional `color` (picked from the name if omitted) | 201 `Tag` | 409 (duplicate name), 422 |
 | 2 | DELETE | `/tags/{id}` | none | 204 | 404 |
 | 2 | GET, PATCH | `/meetings`, `/meetings/{id}` | list gains `tag_id`; PATCH gains `tag_ids[]` | as above | as above |
 | 3 | GET | `/meetings/{id}/export` | query: `content=transcript\|summary`, `format=txt\|md\|pdf` | 200 file download | 404, 422 |
@@ -899,12 +899,34 @@ Built only after the Core Gate passes, in this order. These are design summaries
 - Toggle → dark, and that survives a reload with the system set to light.
 - Placeholder pages follow too, the console shows no errors, and the core tests still pass in light mode.
 
-### 9.2 Tags + filtering (Phase 8)
+### 9.2 Tags + filtering (Phase 8, built)
 
-- Tables `tags` and `meeting_tags` (§6.1); `GET, POST /tags` and `DELETE /tags/{id}`; the list endpoint gains `tag_id` and the meeting PATCH gains `tag_ids`.
-- Coloured `TagChip`s on library rows and the meeting header. The edit modal assigns, removes and creates tags; the library filters by tag (`Meeting.tags.any(...)`, an `EXISTS` on the indexed `meeting_tags`).
-- A duplicate name (case-insensitive, via `COLLATE NOCASE`) → 409. Deleting a tag removes only its links.
-- Seed data gains 1–3 tags per meeting.
+**Schema:**
+- `tags`: `name` is UNIQUE and `COLLATE NOCASE`, 1–40 characters; `color` is a palette key, from a CHECK list of 8.
+- `meeting_tags`: composite primary key, plus an index on `tag_id`. Both foreign keys cascade.
+- `Meeting.tags` is a `secondary=` relationship ordered by name. Deleting a tag removes only its links; the meetings stay.
+
+**API:**
+- `GET /tags`.
+- `POST /tags` with `{name, color?}`:
+  - the name's whitespace is tidied;
+  - a duplicate (ignoring case) → 409, and a simultaneous duplicate caught as an `IntegrityError` → 409 too;
+  - with no colour given, one is picked from the name with `crc32`, like avatars.
+- `DELETE /tags/{id}` → 204 (404 if unknown).
+- List rows and the detail carry `tags`, through `selectinload` (still one extra query per collection).
+- `GET /meetings?tag_id=` → `Meeting.tags.any(Tag.id == …)`, an EXISTS on the indexed link table.
+- `PATCH /meetings/{id}` with `tag_ids` replaces the meeting's tags; an unknown id → 422 "Unknown tag id: 999", and `null` → 422.
+
+**Frontend:**
+- `TagChip` maps the palette key to complete Tailwind classes. The coloured tints carry `dark:` variants, because unlike the grey tokens they don't switch with the theme on their own.
+- Chips appear on library rows (after the date) and in the meeting header.
+- The library's **All tags** dropdown filters, mirrored in the URL as `?tag=<id>`; Clear filters resets it.
+- The edit modal's `TagPicker` shows every tag as a toggle (`aria-pressed`, solid with a check when on). It creates new tags: the toast "Created tag …" appears, and the new tag is selected. Typing a name that exists (ignoring case) just selects it.
+- Save sends `tag_ids` only if the set changed.
+
+**Seed:** nine shared tags; each demo meeting has one to three (the seed test checks it).
+
+**Tests:** `tests/test_tags_api.py` covers create, list, delete, case-insensitive duplicates, validation, assigning, replacing and clearing tags, the tag filter, unknown ids, and deleting a tag that's in use.
 
 ### 9.3 Export: TXT, Markdown, PDF (Phase 9)
 

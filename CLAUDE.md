@@ -214,6 +214,14 @@ frontend/src/
     - Edit and delete icons show on hover or keyboard focus.
     - The header's Add is disabled while the add form is open (the form's button says "Add item").
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
+- **Phase 8 (tags) implementation choices** (details in ARCHITECTURE.md §9.2):
+  - **Palette:** `TagColor` (8 keys) lives in `models/tag.py`. With no colour sent, `POST /tags` picks one from the name (`crc32`).
+  - **Duplicates:** a duplicate name is 409, checked first (NOCASE) and also caught as an `IntegrityError` for races.
+  - **`PATCH tag_ids`:** replaces the meeting's tags; unknown ids → 422.
+  - **Seeding:** `seed.py` creates the tag list from `seed_data.json` (`tags`: name → colour) and sets `saved.tags` after `save_meeting()`, which stays tag-free.
+  - **`TagChip`:** coloured tints need `dark:` classes; grey adapts by itself.
+  - **URL key:** `tag` (an id).
+  - **`TagPicker`:** toggles plus "New tag"; an existing name is selected, not re-created. The frontend doesn't expose deleting tags; `DELETE /tags/{id}` is API-only for now.
 - **Phase 7 (dark mode) implementation choices** (details in ARCHITECTURE.md §9.1):
   - **Palette swap:** under `.dark` the neutral colour tokens get dark values (`@layer base` in `globals.css`), instead of a `dark:` class on every element.
     - The grey scale is mirrored, so each step keeps its role.
@@ -323,7 +331,7 @@ npm run build                        # also type-checks
 
 **Part 2: Bonuses.** Each is its own phase: small commits, its tests, seed updates if relevant, ARCHITECTURE.md data flow, re-check the core, deploy, stop for "go".
 - [x] **Phase 7: Dark mode (~45 min).** Built on 9 Oct (~01:50 IST) *before* Phases 5–6, at the owner's request, because of session limits. Phases 5 and 6 come next; the Core Gate still applies before the other bonuses.
-- [ ] **Phase 8: Tags + filtering (~1.25 h)**
+- [x] **Phase 8: Tags + filtering (~1.25 h)**
 - [ ] **Phase 9: Export TXT / Markdown / PDF (~1 h)**
 - [ ] **Phase 10: Global search, FTS5 (~1.25 h)**
 - [ ] **Phase 11: Comments, highlights, soundbites (~2.5 h)**
