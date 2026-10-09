@@ -87,7 +87,9 @@ def test_without_the_llm_the_answer_is_the_relevant_moments(
     assert found["answered_by"] == "fallback"
     assert found["content"].startswith("Relevant moments from the transcript:")
     assert "[00:40] Daniel Okafor: I'll finish the offline sync work by Friday." in found["content"]
-    assert missing["content"].startswith("I couldn't find anything about that")
+    # No matching words: a general question still gets something useful, the overview.
+    assert missing["content"].startswith("No line of the transcript matches those words.")
+    assert "The meeting's overview:" in missing["content"]
 
 
 def test_no_key_means_the_llm_is_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:

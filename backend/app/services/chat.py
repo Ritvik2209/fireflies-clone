@@ -105,6 +105,11 @@ def _relevant_moments(db: Session, meeting: Meeting, question: str) -> str:
     by_id = {segment.id: segment for segment in meeting.segments}
     ids = relevant_segment_ids(db, meeting.id, question, FALLBACK_MOMENTS)
     if not ids:
-        return "I couldn't find anything about that in this meeting's transcript. Try other words."
+        # Search needs matching words; a general question ("what was decided?") gets the overview.
+        overview = meeting.summary.overview if meeting.summary else ""
+        no_match = "No line of the transcript matches those words."
+        if overview:
+            return f"{no_match} The meeting's overview:\n{overview}"
+        return f"{no_match} Try other words."
     moments = "\n".join(f"- {_line(by_id[segment_id], names)}" for segment_id in ids)
     return f"Relevant moments from the transcript:\n{moments}"
