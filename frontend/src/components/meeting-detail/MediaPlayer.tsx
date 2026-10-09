@@ -46,12 +46,13 @@ export function MediaPlayer({
         aria-valuetext={position}
         className="block h-1.5 w-full cursor-pointer accent-brand-600"
       />
-      <div className="relative flex h-16 items-center px-6">
+      <div className="relative flex h-16 items-center px-3 sm:px-6">
         <p className="text-sm text-gray-500 tabular-nums">
           <span className="text-gray-900">{formatTimestamp(currentMs)}</span> /{" "}
           {formatTimestamp(durationMs)}
         </p>
-        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-3">
+        {/* Centred on wider screens; on phones they follow the time, so nothing overlaps. */}
+        <div className="ml-auto flex items-center gap-1 sm:absolute sm:left-1/2 sm:ml-0 sm:-translate-x-1/2 sm:gap-3">
           <button
             type="button"
             onClick={() => onRateChange(nextRate)}

@@ -25,10 +25,13 @@ export function MeetingRow({ meeting: listed }: { meeting: MeetingListItem }) {
   return (
     <Link
       href={`/meetings/${meeting.id}`}
-      className="group flex items-center gap-4 rounded-xl border border-gray-200 bg-surface px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-25"
+      className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-surface px-4 py-3 transition-colors hover:border-gray-300 hover:bg-gray-25 sm:gap-4 sm:px-5 sm:py-4"
     >
-      {/* Like Fireflies, the row shows the meeting owner (every meeting here is the user's). */}
-      <Avatar name={CURRENT_USER.name} color={CURRENT_USER.avatarColor} size="lg" />
+      {/* Like Fireflies, the row shows the meeting owner (every meeting here is the user's).
+          Phones skip it: it's the same on every row, and the title needs the room. */}
+      <span className="hidden sm:block">
+        <Avatar name={CURRENT_USER.name} color={CURRENT_USER.avatarColor} size="lg" />
+      </span>
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1 text-[15px] font-medium text-gray-900">
           <span className="truncate">{meeting.title}</span>
@@ -62,8 +65,10 @@ export function MeetingRow({ meeting: listed }: { meeting: MeetingListItem }) {
 function FailedRow({ meeting }: { meeting: MeetingListItem }) {
   const [deleting, setDeleting] = useState(false);
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-error-400/40 bg-surface px-5 py-4">
-      <Avatar name={CURRENT_USER.name} color={CURRENT_USER.avatarColor} size="lg" />
+    <div className="flex items-center gap-3 rounded-xl border border-error-400/40 bg-surface px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
+      <span className="hidden sm:block">
+        <Avatar name={CURRENT_USER.name} color={CURRENT_USER.avatarColor} size="lg" />
+      </span>
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2 text-[15px] font-medium text-gray-900">
           <span className="truncate">{meeting.title}</span>

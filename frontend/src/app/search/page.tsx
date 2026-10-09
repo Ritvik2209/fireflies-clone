@@ -10,7 +10,7 @@ export default function SearchPage() {
   // The results read the URL (useSearchParams), so they render in the browser; the skeleton is
   // what the prerendered HTML shows until then.
   return (
-    <div className="mx-auto max-w-5xl px-8 py-6">
+    <div className="mx-auto max-w-5xl px-4 py-4 sm:px-8 sm:py-6">
       <Suspense fallback={<MeetingListSkeleton />}>
         <SearchResults />
       </Suspense>

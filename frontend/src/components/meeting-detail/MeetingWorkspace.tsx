@@ -10,6 +10,7 @@ import { SummaryPanel } from "@/components/meeting-detail/SummaryPanel";
 import { TranscriptPanel } from "@/components/meeting-detail/TranscriptPanel";
 import { useAnnotationActions } from "@/hooks/useAnnotationActions";
 import { usePlayer } from "@/hooks/usePlayer";
+import { cn } from "@/lib/cn";
 import { formatTimestamp } from "@/lib/format";
 import { findActiveIndex } from "@/lib/transcript";
 import type {
@@ -19,6 +20,13 @@ import type {
   Soundbite,
   TranscriptSegment,
 } from "@/lib/types";
+
+// Below lg, one pane shows at a time (tabs above them); from lg they sit side by side.
+type Pane = "notes" | "transcript";
+const PANES: { key: Pane; label: string }[] = [
+  { key: "notes", label: "Notes" },
+  { key: "transcript", label: "Transcript" },
+];
 
 interface MeetingWorkspaceProps {
   meeting: MeetingDetail;
@@ -38,6 +46,7 @@ export function MeetingWorkspace({ meeting, startAt, onChange }: MeetingWorkspac
   // Whether the transcript scrolls along with playback; scrolling it by hand turns this off.
   const [following, setFollowing] = useState(true);
   const [exporting, setExporting] = useState(false); // the download dialog is open
+  const [pane, setPane] = useState<Pane>("notes"); // which one narrow screens show
   const [soundbiteDraft, setSoundbiteDraft] = useState<SoundbiteDraft | null>(null);
   const { highlightLine, setCommentCount, addSoundbite, removeSoundbite } =
     useAnnotationActions(onChange);
@@ -60,6 +69,16 @@ export function MeetingWorkspace({ meeting, startAt, onChange }: MeetingWorkspac
       setFollowing(true);
     },
     [seek],
+  );
+
+  // A chapter or action-item time in the notes also shows the transcript on narrow screens
+  // (on wide ones both are visible, so switching panes changes nothing).
+  const seekFromNotes = useCallback(
+    (ms: number) => {
+      seekAndFollow(ms);
+      setPane("transcript");
+    },
+    [seekAndFollow],
   );
 
   // Stable, so the memoised notes panel doesn't re-render because of it.
@@ -104,9 +123,38 @@ export function MeetingWorkspace({ meeting, startAt, onChange }: MeetingWorkspac
 
   return (
     <div className="flex h-full flex-col">
+      {/* Below lg the notes and the transcript don't fit side by side: tabs switch between them. */}
+      <div
+        role="tablist"
+        aria-label="Meeting"
+        className="flex shrink-0 border-b border-gray-200 lg:hidden"
+      >
+        {PANES.map(({ key, label }) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={pane === key}
+            onClick={() => setPane(key)}
+            className={cn(
+              "flex-1 border-b-2 py-2.5 text-sm font-medium transition-colors",
+              pane === key
+                ? "border-brand-600 text-brand-700 dark:text-brand-300"
+                : "border-transparent text-gray-500 hover:text-gray-700",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="flex min-h-0 flex-1">
-        <div className="relative min-w-0 flex-[11] overflow-y-auto">
-          <div className="mx-auto max-w-3xl px-10 py-8">
+        <div
+          className={cn(
+            "relative min-w-0 flex-[11] overflow-y-auto lg:block",
+            pane === "notes" ? "block" : "hidden",
+          )}
+        >
+          <div className="mx-auto max-w-3xl px-4 py-5 sm:px-6 lg:px-10 lg:py-8">
             <MeetingHeader meeting={meeting} onUpdated={(updated) => onChange(() => updated)} />
             <SummaryPanel
               summary={meeting.summary}
@@ -117,7 +165,7 @@ export function MeetingWorkspace({ meeting, startAt, onChange }: MeetingWorkspac
               people={people}
               durationMs={meeting.duration_ms}
               activeChapter={activeChapter}
-              onSeek={seekAndFollow}
+              onSeek={seekFromNotes}
               highlights={highlightedLines}
               soundbites={meeting.soundbites}
               onPlaySoundbite={playSoundbite}
@@ -137,6 +185,7 @@ export function MeetingWorkspace({ meeting, startAt, onChange }: MeetingWorkspac
           onHighlight={highlightLine}
           onCommentCountChange={setCommentCount}
           onSoundbite={soundbiteFromLine}
+          hiddenOnNarrow={pane !== "transcript"}
         />
       </div>
       <MediaPlayer

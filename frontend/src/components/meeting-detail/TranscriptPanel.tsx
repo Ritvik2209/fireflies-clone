@@ -21,6 +21,7 @@ interface TranscriptPanelProps {
   onHighlight: (segment: TranscriptSegment, color: HighlightColor | null) => void;
   onCommentCountChange: (segmentId: number, count: number) => void;
   onSoundbite: (segment: TranscriptSegment) => void;
+  hiddenOnNarrow: boolean; // below lg the page shows the notes or this panel, one at a time
 }
 
 /**
@@ -38,6 +39,7 @@ export const TranscriptPanel = memo(function TranscriptPanel({
   onHighlight,
   onCommentCountChange,
   onSoundbite,
+  hiddenOnNarrow,
 }: TranscriptPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null); // the scrolling list of lines
   const [tab, setTab] = useState<"transcript" | "ask">("transcript"); // bonus 6: the chat tab
@@ -94,7 +96,10 @@ export const TranscriptPanel = memo(function TranscriptPanel({
   return (
     <section
       aria-label="Transcript"
-      className="relative flex min-w-0 flex-[9] flex-col border-l border-gray-200"
+      className={cn(
+        "relative min-w-0 flex-[9] flex-col border-gray-200 lg:flex lg:border-l",
+        hiddenOnNarrow ? "hidden" : "flex",
+      )}
     >
       <div className="flex shrink-0 gap-6 border-b border-gray-200 px-6">
         {(["transcript", "ask"] as const).map((value) => (

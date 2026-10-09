@@ -1,10 +1,11 @@
 "use client";
 
-import { Settings, Upload } from "lucide-react";
+import { Menu, Settings, Upload } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState } from "react";
 
+import { MobileNav } from "@/components/layout/MobileNav";
 import { sectionTitle } from "@/components/layout/navigation";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { TopbarSearch, TopbarSearchPlaceholder } from "@/components/layout/TopbarSearch";
@@ -12,6 +13,7 @@ import { CreateMeetingModal } from "@/components/meetings/CreateMeetingModal";
 import { ProcessingWatcher } from "@/components/meetings/ProcessingWatcher";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
 import { CURRENT_USER } from "@/lib/currentUser";
 import type { MeetingListItem } from "@/lib/types";
 
@@ -19,10 +21,21 @@ export function Topbar() {
   const pathname = usePathname();
   const [creating, setCreating] = useState(false); // the New meeting modal is open
   const [created, setCreated] = useState<MeetingListItem[]>([]); // being processed (Extra 3)
+  const [menuOpen, setMenuOpen] = useState(false); // the navigation drawer, below lg
 
   return (
-    <header className="flex h-[60px] shrink-0 items-center gap-4 border-b border-gray-200 bg-surface px-6">
-      <h1 className="w-40 shrink-0 truncate text-base text-gray-900">{sectionTitle(pathname)}</h1>
+    <header className="flex h-[60px] shrink-0 items-center gap-2 border-b border-gray-200 bg-surface px-3 sm:gap-4 sm:px-6">
+      {/* Below lg there's no sidebar: this opens it as a drawer. */}
+      <IconButton
+        icon={Menu}
+        label="Open menu"
+        iconClassName="size-5"
+        className="size-9 lg:hidden"
+        onClick={() => setMenuOpen(true)}
+      />
+      <h1 className="hidden w-40 shrink-0 truncate text-base text-gray-900 md:block">
+        {sectionTitle(pathname)}
+      </h1>
 
       <div className="flex flex-1 justify-center">
         {/* The search box reads the URL, so it renders in the browser (see TopbarSearch). */}
@@ -31,17 +44,18 @@ export function Topbar() {
         </Suspense>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         <ThemeToggle />
         <Link
           href="/settings"
           aria-label="Settings"
-          className="flex size-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          className="hidden size-9 items-center justify-center rounded-lg text-gray-500 sm:flex transition-colors hover:bg-gray-100 hover:text-gray-700"
         >
           <Settings className="size-5" aria-hidden />
         </Link>
-        <Button icon={Upload} onClick={() => setCreating(true)}>
-          New meeting
+        {/* On phones only the icon shows; the label stays for screen readers. */}
+        <Button icon={Upload} onClick={() => setCreating(true)} aria-label="New meeting">
+          <span className="hidden sm:inline">New meeting</span>
         </Button>
         <Link
           href="/settings"
@@ -58,6 +72,7 @@ export function Topbar() {
           onCreated={(meeting) => setCreated((current) => [...current, meeting])}
         />
       )}
+      {menuOpen && <MobileNav onClose={() => setMenuOpen(false)} />}
       {created.map((meeting) => (
         <ProcessingWatcher key={meeting.id} meeting={meeting} />
       ))}

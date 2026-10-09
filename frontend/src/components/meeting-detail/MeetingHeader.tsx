@@ -27,7 +27,7 @@ export function MeetingHeader({ meeting, onUpdated }: MeetingHeaderProps) {
   return (
     <header>
       <div className="flex items-start justify-between gap-4">
-        <h2 className="text-2xl font-medium text-gray-900">{meeting.title}</h2>
+        <h2 className="text-xl font-medium text-gray-900 sm:text-2xl">{meeting.title}</h2>
         <div className="flex shrink-0 gap-1">
           <Button variant="ghost" icon={Pencil} onClick={() => setDialog("edit")}>
             Edit

@@ -105,7 +105,7 @@ function MeetingNotFound() {
 function MeetingSkeleton() {
   return (
     <div role="status" aria-label="Loading meeting" className="flex h-full">
-      <div className="flex-[11] px-10 py-8">
+      <div className="flex-[11] px-4 py-5 sm:px-6 lg:px-10 lg:py-8">
         <Skeleton className="h-7 w-2/3" />
         <Skeleton className="mt-3 h-4 w-1/3" />
         <div className="mt-10 space-y-3">
@@ -116,7 +116,7 @@ function MeetingSkeleton() {
         </div>
         <SlowLoadingHint />
       </div>
-      <div className="flex-[9] space-y-6 border-l border-gray-200 px-6 py-8">
+      <div className="hidden flex-[9] space-y-6 border-l border-gray-200 px-6 py-8 lg:block">
         {[0, 1, 2, 3].map((index) => (
           <div key={index} className="space-y-2">
             <Skeleton className="h-4 w-1/3" />

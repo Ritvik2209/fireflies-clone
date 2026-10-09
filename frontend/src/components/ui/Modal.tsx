@@ -41,7 +41,7 @@ export function Modal({ title, onClose, children, className }: ModalProps) {
         onClose();
       }}
       className={cn(
-        "m-auto w-full max-w-lg rounded-2xl border border-gray-200 bg-surface p-0 text-gray-900 shadow-xl backdrop:bg-black/50",
+        "m-auto w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-gray-200 bg-surface p-0 text-gray-900 shadow-xl backdrop:bg-black/50",
         className,
       )}
     >

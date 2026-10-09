@@ -110,7 +110,7 @@ export function MeetingsLibrary() {
   const count = loaded?.meetings?.length ?? 0;
 
   return (
-    <div className="mx-auto max-w-5xl px-8 py-6">
+    <div className="mx-auto max-w-5xl px-4 py-4 sm:px-8 sm:py-6">
       <MeetingFilters
         participants={participants}
         tags={tags}

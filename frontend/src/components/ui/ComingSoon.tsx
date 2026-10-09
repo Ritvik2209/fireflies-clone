@@ -9,8 +9,8 @@ interface ComingSoonProps {
 /** Placeholder for features that are out of scope (integrations, live bot, team, settings). */
 export function ComingSoon({ icon: Icon, title, description }: ComingSoonProps) {
   return (
-    <div className="px-8 py-16">
-      <div className="mx-auto max-w-lg rounded-2xl border border-gray-200 bg-surface p-10 text-center shadow-xs">
+    <div className="px-4 py-10 sm:px-8 sm:py-16">
+      <div className="mx-auto max-w-lg rounded-2xl border border-gray-200 bg-surface p-6 text-center shadow-xs sm:p-10">
         <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600 dark:text-brand-400">
           <Icon className="size-6" aria-hidden />
         </div>

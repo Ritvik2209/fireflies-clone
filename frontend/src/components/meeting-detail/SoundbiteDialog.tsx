@@ -85,7 +85,7 @@ export function SoundbiteDialog({
             className="w-full"
           />
         </Field>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <TimeField id="soundbite-start" label="Start" value={start} onChange={setStart}>
             <Button variant="secondary" onClick={() => setStart(formatTimestamp(currentMs))}>
               Now
