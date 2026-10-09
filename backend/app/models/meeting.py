@@ -7,13 +7,14 @@ from sqlalchemy import CheckConstraint, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.models.associations import meeting_participants
+from app.models.associations import meeting_participants, meeting_tags
 from app.models.types import UTCDateTime, utc_now
 
 if TYPE_CHECKING:
     from app.models.action_item import ActionItem
     from app.models.participant import Participant
     from app.models.summary import Chapter, Summary
+    from app.models.tag import Tag
     from app.models.transcript import TranscriptSegment
     from app.models.user import User
 
@@ -39,6 +40,10 @@ class Meeting(Base):
     # Shared people: only the link rows are deleted with a meeting, never the participants.
     participants: Mapped[list["Participant"]] = relationship(
         secondary=meeting_participants, back_populates="meetings", order_by="Participant.name"
+    )
+    # Shared labels (bonus 2): like participants, only the link rows go with a meeting.
+    tags: Mapped[list["Tag"]] = relationship(
+        secondary=meeting_tags, back_populates="meetings", order_by="Tag.name"
     )
     # Owned children: the ORM deletes them with the meeting (and removes orphans), and the
     # foreign keys' ON DELETE CASCADE does the same for deletes that bypass the ORM.

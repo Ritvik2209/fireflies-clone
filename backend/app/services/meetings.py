@@ -7,17 +7,28 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.errors import ConflictError, NotFoundError
-from app.models import ActionItem, Chapter, Meeting, Participant, Summary, TranscriptSegment, User
+from app.models import (
+    ActionItem,
+    Chapter,
+    Meeting,
+    Participant,
+    Summary,
+    Tag,
+    TranscriptSegment,
+    User,
+)
 from app.models.types import utc_now
 from app.parsers import ParsedSegment, parse_transcript
 from app.schemas.meeting import MeetingCreate, MeetingFilters, MeetingUpdate
 from app.services.participants import get_or_create_participant, normalize_name
 from app.services.summary_generator import MeetingNotes, generate_notes
+from app.services.tags import get_tags
 
 # Everything the meeting page shows: one extra query per collection, however long the
 # transcript (no N+1).
 _DETAIL_OPTIONS = (
     selectinload(Meeting.participants),
+    selectinload(Meeting.tags),
     selectinload(Meeting.segments),
     selectinload(Meeting.summary),
     selectinload(Meeting.chapters),
@@ -29,7 +40,7 @@ def list_meetings(db: Session, owner: User, filters: MeetingFilters) -> list[Mee
     query = (
         select(Meeting)
         .where(Meeting.owner_id == owner.id)
-        .options(selectinload(Meeting.participants))
+        .options(selectinload(Meeting.participants), selectinload(Meeting.tags))
     )
     if filters.q:
         # Case-insensitive substring match (SQLite's LIKE; autoescape treats % and _ literally).
@@ -38,6 +49,9 @@ def list_meetings(db: Session, owner: User, filters: MeetingFilters) -> list[Mee
     if filters.participant_id is not None:
         # Becomes an EXISTS subquery on meeting_participants (indexed by participant_id).
         query = query.where(Meeting.participants.any(Participant.id == filters.participant_id))
+    if filters.tag_id is not None:
+        # An EXISTS subquery on meeting_tags (indexed by tag_id).
+        query = query.where(Meeting.tags.any(Tag.id == filters.tag_id))
     if filters.date_from is not None:
         query = query.where(Meeting.meeting_date >= filters.date_from)
     if filters.date_to is not None:
@@ -163,6 +177,8 @@ def update_meeting(db: Session, owner: User, meeting_id: int, data: MeetingUpdat
         meeting.title = data.title
     if data.participant_names is not None:
         _replace_participants(db, meeting, data.participant_names)
+    if data.tag_ids is not None:
+        meeting.tags = get_tags(db, data.tag_ids)  # replaces the links; unknown ids → 422
     meeting.updated_at = utc_now()  # changing only the participant links wouldn't bump it
     db.commit()
     return get_meeting(db, owner, meeting_id)

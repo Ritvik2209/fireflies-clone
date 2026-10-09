@@ -18,3 +18,11 @@ meeting_participants = Table(
         index=True,
     ),
 )
+
+# Meetings ↔ tags (bonus 2), the same shape: the tag_id index serves "meetings with this tag".
+meeting_tags = Table(
+    "meeting_tags",
+    Base.metadata,
+    Column("meeting_id", ForeignKey("meetings.id", ondelete="CASCADE"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True, index=True),
+)

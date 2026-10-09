@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from app.config import settings
 from app.database import SessionLocal, init_db
 from app.errors import register_exception_handlers
-from app.routers import action_items, health, meetings, participants
+from app.routers import action_items, health, meetings, participants, tags
 from app.seed.seed import seed_if_empty
 
 
@@ -35,7 +35,13 @@ app.add_middleware(
 
 register_exception_handlers(app)
 
-for router in (health.router, meetings.router, action_items.router, participants.router):
+for router in (
+    health.router,
+    meetings.router,
+    action_items.router,
+    participants.router,
+    tags.router,
+):
     app.include_router(router, prefix="/api")
 
 

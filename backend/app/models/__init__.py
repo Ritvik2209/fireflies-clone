@@ -4,10 +4,11 @@ Importing this package registers every table on Base.metadata (needed before cre
 """
 
 from app.models.action_item import ActionItem
-from app.models.associations import meeting_participants
+from app.models.associations import meeting_participants, meeting_tags
 from app.models.meeting import Meeting
 from app.models.participant import Participant
 from app.models.summary import Chapter, Summary
+from app.models.tag import Tag
 from app.models.transcript import TranscriptSegment
 from app.models.user import User
 
@@ -17,7 +18,9 @@ __all__ = [
     "Meeting",
     "Participant",
     "Summary",
+    "Tag",
     "TranscriptSegment",
     "User",
     "meeting_participants",
+    "meeting_tags",
 ]

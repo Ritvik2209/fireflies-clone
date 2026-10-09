@@ -14,6 +14,7 @@ from app.schemas.action_item import ActionItemOut
 from app.schemas.base import ORMModel
 from app.schemas.participant import ParticipantOut
 from app.schemas.summary import ChapterOut, SummaryOut
+from app.schemas.tag import TagOut
 from app.schemas.transcript import SegmentOut
 
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
@@ -34,12 +35,13 @@ class MeetingCreate(BaseModel):
 
 
 class MeetingUpdate(BaseModel):
-    """PATCH body: only the fields sent change. participant_names replaces the whole list."""
+    """PATCH body: only the fields sent change. participant_names and tag_ids replace the list."""
 
     title: Title | None = None
     participant_names: list[PersonName] | None = Field(default=None, max_length=50)
+    tag_ids: list[int] | None = Field(default=None, max_length=50)
 
-    @field_validator("title", "participant_names")
+    @field_validator("title", "participant_names", "tag_ids")
     @classmethod
     def not_null(cls, value: object) -> object:
         # Runs only for fields that were sent; leaving a field out is fine, sending null is not.
@@ -53,6 +55,7 @@ class MeetingFilters(BaseModel):
 
     q: str | None = Field(default=None, max_length=200, description="Text in the title")
     participant_id: int | None = Field(default=None, ge=1)
+    tag_id: int | None = Field(default=None, ge=1)
     date_from: AwareDatetime | None = None
     date_to: AwareDatetime | None = None
     sort: Literal["recent", "oldest"] = "recent"
@@ -71,6 +74,7 @@ class MeetingListItem(ORMModel):
     duration_ms: int
     source: MeetingSource
     participants: list[ParticipantOut]
+    tags: list[TagOut]
 
 
 class MeetingDetail(MeetingListItem):
