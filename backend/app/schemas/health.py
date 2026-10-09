@@ -9,3 +9,4 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
     sqlite_version: str
     fts5: bool
+    llm_configured: bool  # is LLM_API_KEY set? (never the key itself)

@@ -216,8 +216,8 @@ frontend/src/
   - **Data attribute:** transcript lines use `data-line`, because sonner's toasts already use `data-index`.
 - **Phase 12 (chat) implementation choices** (details in ARCHITECTURE.md §9.6):
   - **Provider:** Groq through `openai==3.26.1` (base URL `https://api.groq.com/openai/v1`), default model `llama-3.3-70b-versatile`.
-  - **Key handling:** `render.yaml` sets the provider and model; `LLM_API_KEY` is `sync: false` (dashboard only). Without a key, the chat uses the search fallback.
-  - **`llm/`:** `client.complete()` is the only SDK call (20 s timeout, 1 retry, 500-token cap); failures raise `LLMUnavailable`. `prompts.build_messages()` puts the meeting between `<meeting>` tags as data.
+  - **Key handling:** `render.yaml` sets the provider and model; `LLM_API_KEY` is `sync: false` (dashboard only). Without a key, the chat uses the search fallback. The key is whitespace-stripped, and `/api/health` reports `llm_configured` (never the key).
+  - **`llm/`:** `client.complete()` is the only SDK call (20 s timeout, 1 retry, 500-token cap); failures raise `LLMUnavailable`, and the chat logs the reason as a warning. `prompts.build_messages()` puts the meeting between `<meeting>` tags as data.
   - **Limits:** 500-character questions (422); 10 questions a minute per meeting (429, `TooManyRequestsError`); the last 6 turns are sent as history.
   - **Context:** a transcript over 24,000 characters is cut to the FTS5-relevant lines plus their neighbours.
   - **Fallback:** the top 4 matching lines, or the overview if none match.

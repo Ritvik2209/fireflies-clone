@@ -1,8 +1,12 @@
-"""Health check: the API is up, and its SQLite build supports what the app needs."""
+"""Health check: the API is up, and its SQLite build supports what the app needs.
+
+It also says whether the chat has an LLM key (true or false, never the key itself).
+"""
 
 import sqlite3
 from functools import cache
 
+from app.config import settings
 from app.schemas.health import HealthResponse
 
 
@@ -21,5 +25,8 @@ def sqlite_has_fts5() -> bool:
 
 def get_health() -> HealthResponse:
     return HealthResponse(
-        status="ok", sqlite_version=sqlite3.sqlite_version, fts5=sqlite_has_fts5()
+        status="ok",
+        sqlite_version=sqlite3.sqlite_version,
+        fts5=sqlite_has_fts5(),
+        llm_configured=settings.llm_api_key is not None,
     )

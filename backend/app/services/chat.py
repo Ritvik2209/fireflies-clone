@@ -1,5 +1,6 @@
 """The "Ask about this meeting" chat (bonus 6): history, rate limit, context, LLM or fallback."""
 
+import logging
 from datetime import timedelta
 
 from sqlalchemy import delete, func, select
@@ -20,6 +21,8 @@ RELEVANT_LINES = 12  # if the transcript is longer: its best matches…
 NEIGHBOURS = 1  # …plus the line before and after each, for context
 HISTORY_MESSAGES = 6  # recent turns sent along, so follow-up questions work
 FALLBACK_MOMENTS = 4
+
+logger = logging.getLogger(__name__)
 
 
 def list_messages(db: Session, owner: User, meeting_id: int) -> list[ChatMessage]:
@@ -47,7 +50,8 @@ def ask(db: Session, owner: User, meeting_id: int, question: str) -> ChatMessage
             question,
         )
         answer, answered_by = llm.complete(messages), "llm"
-    except llm.LLMUnavailable:  # no key, or the provider failed: the demo still answers
+    except llm.LLMUnavailable as error:  # no key, or the provider failed: the demo still answers
+        logger.warning("Chat answered from search because the LLM is unavailable: %s", error)
         answer, answered_by = _relevant_moments(db, meeting, question), "fallback"
 
     db.add(ChatMessage(meeting_id=meeting.id, user_id=owner.id, role="user", content=question))

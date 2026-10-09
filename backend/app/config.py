@@ -27,7 +27,8 @@ def load_settings() -> Settings:
         ),
         llm_provider=os.environ.get("LLM_PROVIDER", "groq"),
         llm_model=os.environ.get("LLM_MODEL", "llama-3.3-70b-versatile"),
-        llm_api_key=os.environ.get("LLM_API_KEY") or None,  # only ever set on the server
+        # Only ever set on the server. Stripped: a space or newline pasted with it breaks auth.
+        llm_api_key=os.environ.get("LLM_API_KEY", "").strip() or None,
     )
 
 

@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
 
+from app.config import load_settings
 from app.llm import client as llm
 from app.services import chat as chat_service
 
@@ -73,7 +74,7 @@ def test_the_prompt_holds_the_transcript_as_data_and_answers_are_stored(
 
 
 def test_without_the_llm_the_answer_is_the_relevant_moments(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     def unavailable(messages: list[dict[str, str]]) -> str:
         raise llm.LLMUnavailable("no key")
@@ -90,6 +91,8 @@ def test_without_the_llm_the_answer_is_the_relevant_moments(
     # No matching words: a general question still gets something useful, the overview.
     assert missing["content"].startswith("No line of the transcript matches those words.")
     assert "The meeting's overview:" in missing["content"]
+    # The reason is logged, so the server's logs say why the LLM wasn't used.
+    assert "the LLM is unavailable: no key" in caplog.text
 
 
 def test_no_key_means_the_llm_is_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -97,6 +100,14 @@ def test_no_key_means_the_llm_is_unavailable(monkeypatch: pytest.MonkeyPatch) ->
 
     with pytest.raises(llm.LLMUnavailable):
         llm.complete([{"role": "user", "content": "Hello"}])
+
+
+def test_the_key_is_read_without_stray_whitespace(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_API_KEY", " gsk_example\n")  # as it might be pasted into a dashboard
+    assert load_settings().llm_api_key == "gsk_example"
+
+    monkeypatch.setenv("LLM_API_KEY", " \n")
+    assert load_settings().llm_api_key is None
 
 
 def test_a_long_transcript_sends_only_the_relevant_lines(
